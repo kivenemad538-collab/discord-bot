@@ -18,6 +18,32 @@ const {
   AttachmentBuilder,
 } = require("discord.js");
 
+// 👇 ضيف ده هنا
+const { createCanvas, loadImage } = require("canvas");
+
+async function createWelcomeImage(member) {
+  const canvas = createCanvas(1024, 256);
+  const ctx = canvas.getContext("2d");
+
+  const background = await loadImage("PUT_IMAGE_LINK_HERE");
+  ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+
+  const avatar = await loadImage(member.user.displayAvatarURL({ extension: "png" }));
+
+  const size = 180;
+  const x = 40;
+  const y = 38;
+
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+
+  ctx.drawImage(avatar, x, y, size, size);
+
+  return canvas.toBuffer();
+}
+
 // ======================================================
 // CONFIG
 // ======================================================
@@ -920,10 +946,21 @@ client.on("guildMemberAdd", async (member) => {
       .setDisabled(!settings.feedback)
   );
 
+
+client.on("guildMemberAdd", async (member) => {
+  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+  if (!channel) return;
+
+  const image = await createWelcomeImage(member);
+
   await channel.send({
-    content: `<@${member.id}>`,
-    embeds: [buildWelcomeEmbed(member)],
-    components: [row],
+    content: `مرحباً <@${member.id}> 👋`,
+    files: [
+      {
+        attachment: image,
+        name: "welcome.png"
+      }
+    ]
   }).catch(() => {});
 });
 
