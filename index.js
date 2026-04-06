@@ -23,6 +23,11 @@ const {
 // ======================================================
 const TOKEN = process.env.TOKEN;
 
+// Optional APIs
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "";
+const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID || "";
+const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET || "";
+
 // ================= CHANNEL IDS =================
 const WELCOME_CHANNEL_ID = "1465609782680621254";
 const RULES_CHANNEL_ID = "1465786939755200687";
@@ -32,11 +37,11 @@ const CONTROL_PANEL_CHANNEL_ID = "1480098674578034698";
 // روم بانل تقديم السيرفر فقط
 const RP_APPLY_PANEL_CHANNEL_ID = "1465803291714785481";
 
-// روم بانل الخدمات فقط
+// روم الخدمات / التذاكر / التقديمات المركزية
 const SERVICES_PANEL_CHANNEL_ID = "1465757986684403828";
 
-// روم صناع المحتوى
-const CREATOR_REGISTRY_CHANNEL_ID = "1490733587363004566";
+// روم عرض صناع المحتوى
+const CREATOR_BOARD_CHANNEL_ID = "1490733587363004566";
 
 // لو حبيت تستخدمها بعدين لإعلانات اللايف
 const LIVE_CHANNEL_ID = "1490733602663563275";
@@ -70,10 +75,10 @@ const RP_REJECT1_ROLE_ID = "1477568923208519681";
 const RP_REJECT2_ROLE_ID = "1477569051185119332";
 
 // ================= PANEL MARKERS =================
-const PANEL_MARKER_RP = "PANEL_RP_APPLY_v8";
-const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v8";
-const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v5";
-const PANEL_MARKER_CREATORS = "PANEL_CREATORS_v1";
+const PANEL_MARKER_RP = "PANEL_RP_APPLY_v9";
+const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v9";
+const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v9";
+const PANEL_MARKER_CREATOR_BOARD = "PANEL_CREATOR_BOARD_v3";
 
 // ======================================================
 // FILES
@@ -105,9 +110,9 @@ const RP_QUESTIONS = [
 ];
 
 const CREATOR_QUESTIONS = [
-  { key: "platform", q: "🎥 ما المنصة التي تنشر عليها؟" },
   { key: "channelLink", q: "🔗 أرسل رابط القناة / الحساب." },
   { key: "followers", q: "👥 كم عدد المتابعين / المشتركين؟" },
+  { key: "avgViews", q: "👁️ كم متوسط المشاهدات تقريبًا؟" },
   { key: "contentType", q: "📹 ما نوع المحتوى الذي تقدمه؟" },
   { key: "schedule", q: "📅 ما جدول النشر / البث؟" },
   { key: "rpExperience", q: "🎮 هل لديك خبرة RP؟" },
@@ -161,6 +166,7 @@ const defaultSettings = {
   adminApply: true,
   feedback: true,
   creatorRegistry: true,
+  creatorBoardMessageId: null,
 };
 
 function readJsonFile(file, fallback) {
@@ -272,12 +278,12 @@ function reviewFieldsFromQuestions(questions, answers) {
 }
 
 function disableMessageComponents(message) {
-  const rows = message.components.map((row) => {
+  if (!message?.components?.length) return [];
+  return message.components.map((row) => {
     const newRow = ActionRowBuilder.from(row);
     newRow.components = newRow.components.map((c) => ButtonBuilder.from(c).setDisabled(true));
     return newRow;
   });
-  return rows;
 }
 
 function featureButton(customId, label, enabled) {
@@ -333,6 +339,20 @@ async function getTicketOwnerMember(channel) {
   const info = parseTicketTopic(channel.topic);
   if (!info.owner) return null;
   return channel.guild.members.fetch(info.owner).catch(() => null);
+}
+
+function toNumberLoose(input) {
+  const cleaned = String(input || "")
+    .replace(/,/g, "")
+    .replace(/[^\d.]/g, "")
+    .trim();
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function formatNum(n) {
+  const num = Number(n || 0);
+  return num.toLocaleString("en-US");
 }
 
 async function createTranscriptFile(channel) {
@@ -451,12 +471,146 @@ function parseCreatorLink(link) {
   return null;
 }
 
-function findExistingCreator(userId, link) {
-  return creators.find(
-    (c) =>
-      String(c.userId) === String(userId) &&
-      String(c.link).toLowerCase() === String(link).toLowerCase()
-  );
+// ======================================================
+// CREATOR SYSTEM
+// ======================================================
+function normalizeCreator(raw) {
+  return {
+    userId: String(raw.userId),
+    name: safeTrim(raw.name || raw.channelName || "Unknown", 100),
+    platform: safeTrim(raw.platform || "Unknown", 50),
+    link: safeTrim(raw.link || "", 500),
+    followers: toNumberLoose(raw.followers),
+    avgViews: toNumberLoose(raw.avgViews),
+    updatedAt: raw.updatedAt || new Date().toISOString(),
+  };
+}
+
+function getCreatorByUserId(userId) {
+  return creators.find((c) => String(c.userId) === String(userId));
+}
+
+function sortCreators() {
+  creators = creators
+    .map(normalizeCreator)
+    .sort((a, b) => {
+      if ((b.avgViews || 0) !== (a.avgViews || 0)) {
+        return (b.avgViews || 0) - (a.avgViews || 0);
+      }
+      return (b.followers || 0) - (a.followers || 0);
+    });
+}
+
+function addOrUpdateCreator(data) {
+  const creator = normalizeCreator(data);
+  const existing = getCreatorByUserId(creator.userId);
+
+  if (existing) {
+    existing.name = creator.name;
+    existing.platform = creator.platform;
+    existing.link = creator.link;
+    existing.followers = creator.followers;
+    existing.avgViews = creator.avgViews;
+    existing.updatedAt = new Date().toISOString();
+  } else {
+    creators.push({
+      ...creator,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  sortCreators();
+  saveCreators();
+}
+
+function creatorLeaderboardEmbed(guild) {
+  sortCreators();
+
+  const desc =
+    creators.length > 0
+      ? creators
+          .map((c, i) => {
+            const member = guild?.members?.cache?.get?.(String(c.userId));
+            const mention = member ? `<@${c.userId}>` : `\`${c.userId}\``;
+            return (
+              `**#${i + 1}** ${mention}\n` +
+              `• الاسم: **${safeTrim(c.name, 80)}**\n` +
+              `• المنصة: **${safeTrim(c.platform, 40)}**\n` +
+              `• المتابعين: **${formatNum(c.followers)}**\n` +
+              `• متوسط المشاهدات: **${formatNum(c.avgViews)}**\n` +
+              `• الرابط: ${safeTrim(c.link, 250)}`
+            );
+          })
+          .join("\n\n")
+      : "لا يوجد صناع محتوى مسجلين حاليًا.";
+
+  return new EmbedBuilder()
+    .setColor(0x00c2ff)
+    .setTitle("🏆 لوحة صناع المحتوى")
+    .setDescription(desc)
+    .setFooter({ text: `Night City RP • ${PANEL_MARKER_CREATOR_BOARD}` })
+    .setTimestamp();
+}
+
+async function updateCreatorBoard(guild) {
+  const ch = await guild.channels.fetch(CREATOR_BOARD_CHANNEL_ID).catch(() => null);
+  if (!ch?.isTextBased()) return;
+
+  let msg = null;
+
+  if (settings.creatorBoardMessageId) {
+    msg = await ch.messages.fetch(settings.creatorBoardMessageId).catch(() => null);
+  }
+
+  if (!msg) {
+    msg = await findMarkerMessage(ch, PANEL_MARKER_CREATOR_BOARD);
+  }
+
+  const payload = { embeds: [creatorLeaderboardEmbed(guild)], components: [] };
+
+  if (!msg) {
+    const sent = await ch.send(payload).catch(() => null);
+    if (sent) {
+      settings.creatorBoardMessageId = sent.id;
+      saveSettings();
+    }
+    return;
+  }
+
+  await msg.edit(payload).catch(() => {});
+}
+
+function creatorRegistryEmbed(data, discordUserId) {
+  return new EmbedBuilder()
+    .setColor(data.color || 0x00c2ff)
+    .setTitle("🎥 تم تحديث بيانات صانع المحتوى")
+    .setDescription(
+      `**العضو:** <@${discordUserId}>\n` +
+      `**المنصة:** ${safeTrim(data.platform, 50)}\n` +
+      `**اسم القناة:** ${safeTrim(data.name, 100)}\n` +
+      `**المتابعين:** ${formatNum(data.followers)}\n` +
+      `**متوسط المشاهدات:** ${formatNum(data.avgViews)}\n\n` +
+      `**الرابط:**\n${safeTrim(data.link, 500)}`
+    )
+    .setFooter({ text: "Night City RP • Creators" })
+    .setTimestamp();
+}
+
+// Placeholder اختياري
+async function tryAutoFetchCreatorStats(parsed) {
+  if (!parsed) return null;
+
+  // هنا تقدر تضيف YouTube/Twitch API بعدين
+  // حاليًا يرجع null فيكمل بالمدخل اليدوي
+  if (parsed.platform === "YouTube" && YOUTUBE_API_KEY) {
+    return null;
+  }
+
+  if (parsed.platform === "Twitch" && TWITCH_CLIENT_ID && TWITCH_CLIENT_SECRET) {
+    return null;
+  }
+
+  return null;
 }
 
 // ======================================================
@@ -485,12 +639,12 @@ function rpAcceptEmbed(guildId) {
       .setTitle("🏙️ تم قبولك في السيرفر!")
       .setDescription(
         "━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-        "🎉 **مبروك!**\n\n" +
-        "تم قبول طلبك في **Night City RP**.\n\n" +
-        "الخطوة التالية هي إجراء **المقابلة الصوتية**.\n\n" +
-        "اضغط الزر بالأسفل للدخول إلى غرفة المقابلة.\n\n" +
-        "يرجى الالتزام بالقوانين واحترام الإدارة.\n\n" +
-        "━━━━━━━━━━━━━━━━━━━━━━"
+          "🎉 **مبروك!**\n\n" +
+          "تم قبول طلبك في **Night City RP**.\n\n" +
+          "الخطوة التالية هي إجراء **المقابلة الصوتية**.\n\n" +
+          "اضغط الزر بالأسفل للدخول إلى غرفة المقابلة.\n\n" +
+          "يرجى الالتزام بالقوانين واحترام الإدارة.\n\n" +
+          "━━━━━━━━━━━━━━━━━━━━━━"
       )
       .setFooter({ text: "Night City RP • الإدارة" })
       .setTimestamp(),
@@ -509,13 +663,13 @@ function creatorAcceptEmbed() {
     .setTitle("🎥 تم قبولك كصانع محتوى!")
     .setDescription(
       "━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-      "🎉 **مبروك!**\n\n" +
-      "تم قبولك في **برنامج صناع المحتوى** في سيرفر\n" +
-      "**Night City RP**.\n\n" +
-      "يمكنك الآن نشر محتوى السيرفر\n" +
-      "والمساهمة في نمو المجتمع.\n\n" +
-      "نتمنى لك التوفيق.\n\n" +
-      "━━━━━━━━━━━━━━━━━━━━━━"
+        "🎉 **مبروك!**\n\n" +
+        "تم قبولك في **برنامج صناع المحتوى** في سيرفر\n" +
+        "**Night City RP**.\n\n" +
+        "تم تسجيل بياناتك داخل النظام\n" +
+        "وسيتم إضافتك تلقائيًا في لوحة العرض.\n\n" +
+        "نتمنى لك التوفيق.\n\n" +
+        "━━━━━━━━━━━━━━━━━━━━━━"
     )
     .setFooter({ text: "Night City RP • الإدارة" })
     .setTimestamp();
@@ -527,13 +681,13 @@ function adminAcceptEmbed() {
     .setTitle("🛡️ تم قبولك في الإدارة!")
     .setDescription(
       "━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-      "🎉 **مبروك!**\n\n" +
-      "تم قبولك في **فريق إدارة Night City RP**.\n\n" +
-      "تم منحك الرتبة بنجاح.\n\n" +
-      "نرجو منك الالتزام بالقوانين\n" +
-      "والتعامل باحترام مع جميع اللاعبين.\n\n" +
-      "يمنع إساءة استخدام الصلاحيات.\n\n" +
-      "━━━━━━━━━━━━━━━━━━━━━━"
+        "🎉 **مبروك!**\n\n" +
+        "تم قبولك في **فريق إدارة Night City RP**.\n\n" +
+        "تم منحك الرتبة بنجاح.\n\n" +
+        "نرجو منك الالتزام بالقوانين\n" +
+        "والتعامل باحترام مع جميع اللاعبين.\n\n" +
+        "يمنع إساءة استخدام الصلاحيات.\n\n" +
+        "━━━━━━━━━━━━━━━━━━━━━━"
     )
     .setFooter({ text: "Night City RP • الإدارة" })
     .setTimestamp();
@@ -545,9 +699,9 @@ function rpRejectEmbed(reason, finalReject = false) {
     .setTitle(finalReject ? "⛔ تم رفض طلبك نهائيًا" : "❌ تم رفض طلبك في السيرفر")
     .setDescription(
       `⭐ **سبب الرفض:**\n${safeTrim(reason, 1500)}\n\n` +
-      (finalReject
-        ? "تم رفضك **نهائيًا** ولا يمكنك التقديم مرة أخرى."
-        : "يمكنك إعادة التقديم لاحقًا بعد تحسين مستواك.")
+        (finalReject
+          ? "تم رفضك **نهائيًا** ولا يمكنك التقديم مرة أخرى."
+          : "يمكنك إعادة التقديم لاحقًا بعد تحسين مستواك.")
     )
     .setFooter({ text: "Night City RP • الإدارة" })
     .setTimestamp();
@@ -577,9 +731,9 @@ function ticketOpenEmbed(userId, kind) {
     .setTitle("🎫 تم فتح التذكرة بنجاح")
     .setDescription(
       `مرحبًا <@${userId}>.\n\n` +
-      `**نوع التذكرة:** ${ticketLabel(kind)}\n\n` +
-      `اكتب سبب التذكرة أو المشكلة **بالتفصيل** داخل هذه القناة.\n` +
-      `سيقوم أحد أفراد الإدارة باستلامها في أقرب وقت.`
+        `**نوع التذكرة:** ${ticketLabel(kind)}\n\n` +
+        `اكتب سبب التذكرة أو المشكلة **بالتفصيل** داخل هذه القناة.\n` +
+        `سيقوم أحد أفراد الإدارة باستلامها في أقرب وقت.`
     )
     .setFooter({ text: "Night City RP • Tickets" })
     .setTimestamp();
@@ -591,9 +745,9 @@ function ticketClosedDmEmbed(reason, channelName) {
     .setTitle("🔒 تم إغلاق تذكرتك")
     .setDescription(
       `شكرًا لتواصلك مع **Night City RP**.\n\n` +
-      `**اسم التذكرة:** ${channelName}\n\n` +
-      `**سبب الإغلاق:**\n${safeTrim(reason, 1800)}\n\n` +
-      `تم إرفاق Transcript كامل للمحادثة في هذه الرسالة.`
+        `**اسم التذكرة:** ${channelName}\n\n` +
+        `**سبب الإغلاق:**\n${safeTrim(reason, 1800)}\n\n` +
+        `تم إرفاق Transcript كامل للمحادثة في هذه الرسالة.`
     )
     .setFooter({ text: "Night City RP • Support" })
     .setTimestamp();
@@ -605,24 +759,10 @@ function ticketRatingRequestEmbed(channelName) {
     .setTitle("⭐ تقييم الخدمة")
     .setDescription(
       `شكرًا لاستخدامك نظام التذاكر في **Night City RP**.\n\n` +
-      `يرجى تقييم تجربتك في التذكرة **${channelName}** من 1 إلى 5 نجوم.\n` +
-      `بعد اختيار عدد النجوم، سيطلب منك البوت كتابة سبب التقييم.`
+        `يرجى تقييم تجربتك في التذكرة **${channelName}** من 1 إلى 5 نجوم.\n` +
+        `بعد اختيار عدد النجوم، سيطلب منك البوت كتابة سبب التقييم.`
     )
     .setFooter({ text: "Night City RP • Feedback" })
-    .setTimestamp();
-}
-
-function creatorRegistryEmbed(data, discordUserId) {
-  return new EmbedBuilder()
-    .setColor(data.color)
-    .setTitle("🎥 صانع محتوى جديد")
-    .setDescription(
-      `**العضو:** <@${discordUserId}>\n` +
-      `**المنصة:** ${data.platform}\n` +
-      `**اسم القناة:** ${data.name}\n\n` +
-      `**الرابط:**\n${data.link}`
-    )
-    .setFooter({ text: "Night City RP • Creators" })
     .setTimestamp();
 }
 
@@ -660,8 +800,12 @@ async function buildRpPanelPayload() {
 async function buildServicesPanelPayload() {
   const embed = new EmbedBuilder()
     .setColor(0x2b2d31)
-    .setTitle("🎫 فتح تذكرة")
-    .setDescription("اختر نوع التذكرة من القائمة بالأسفل.")
+    .setTitle("🎫 الخدمات والتقديمات")
+    .setDescription(
+      "اختر من القائمة بالأسفل.\n\n" +
+        "• الدعم / الاستئناف / الشكوى / الاقتراح = يفتح تذكرة\n" +
+        "• تقديم صانع محتوى / تقديم إدارة = يرسل النموذج في الخاص"
+    )
     .setFooter({ text: `Night City RP • ${PANEL_MARKER_SERVICES}` });
 
   const options = [];
@@ -669,42 +813,19 @@ async function buildServicesPanelPayload() {
   if (settings.appeal) options.push({ label: "استئناف", description: "فتح تذكرة استئناف", value: "appeal", emoji: "📄" });
   if (settings.report) options.push({ label: "شكوى عن لاعب", description: "فتح تذكرة شكوى", value: "report", emoji: "🚨" });
   if (settings.suggest) options.push({ label: "اقتراح", description: "فتح تذكرة اقتراح", value: "suggest", emoji: "💡" });
+  if (settings.creatorApply) options.push({ label: "تقديم صانع محتوى", description: "إرسال نموذج صانع المحتوى في الخاص", value: "creator_apply", emoji: "🎥" });
+  if (settings.adminApply) options.push({ label: "تقديم إدارة", description: "إرسال نموذج الإدارة في الخاص", value: "admin_apply", emoji: "🛡️" });
 
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId("ticket_select")
-      .setPlaceholder(options.length ? "اختر نوع التذكرة" : "لا توجد تذاكر متاحة الآن")
+      .setPlaceholder(options.length ? "اختر الخدمة" : "لا توجد خدمات متاحة الآن")
       .setDisabled(options.length === 0)
       .addOptions(
         options.length
           ? options
-          : [{ label: "مغلق", description: "جميع التذاكر مغلقة", value: "closed", emoji: "🚫" }]
+          : [{ label: "مغلق", description: "جميع الخدمات مغلقة", value: "closed", emoji: "🚫" }]
       )
-  );
-
-  return { embeds: [embed], components: [row] };
-}
-
-async function buildCreatorRegistryPanelPayload() {
-  const embed = new EmbedBuilder()
-    .setColor(0x00c2ff)
-    .setTitle("🎥 تسجيل صناع المحتوى")
-    .setDescription(
-      "اضغط الزر بالأسفل لإضافة رابط منصتك.\n\n" +
-      "المنصات المدعومة حاليًا:\n" +
-      "• Twitch\n" +
-      "• Kick\n" +
-      "• YouTube\n" +
-      "• TikTok"
-    )
-    .setFooter({ text: `Night City RP • ${PANEL_MARKER_CREATORS}` });
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("add_creator_link")
-      .setLabel(settings.creatorRegistry ? "➕ إضافة رابط منصة" : "🚫 التسجيل مغلق")
-      .setStyle(settings.creatorRegistry ? ButtonStyle.Success : ButtonStyle.Secondary)
-      .setDisabled(!settings.creatorRegistry)
   );
 
   return { embeds: [embed], components: [row] };
@@ -714,7 +835,7 @@ async function buildControlPanelPayload() {
   const embed = new EmbedBuilder()
     .setColor(0xf1c40f)
     .setTitle("🎛️ لوحة تحكم الأزرار")
-    .setDescription("من هنا تقدر تفتح وتقفل الوظائف.")
+    .setDescription("من هنا تقدر تفتح وتقفل الوظائف وتضيف صانع محتوى يدويًا.")
     .setFooter({ text: `Night City RP • ${PANEL_MARKER_CONTROL}` })
     .setTimestamp();
 
@@ -736,7 +857,14 @@ async function buildControlPanelPayload() {
     featureButton("toggle_creatorRegistry", "تسجيل صناع المحتوى", settings.creatorRegistry)
   );
 
-  return { embeds: [embed], components: [row1, row2, row3] };
+  const row4 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("manual_add_creator")
+      .setLabel("➕ إضافة / تعديل صانع محتوى يدويًا")
+      .setStyle(ButtonStyle.Primary)
+  );
+
+  return { embeds: [embed], components: [row1, row2, row3, row4] };
 }
 
 async function ensurePanels(guild) {
@@ -756,14 +884,6 @@ async function ensurePanels(guild) {
     else await old.edit(payload).catch(() => {});
   }
 
-  const creatorChannel = await guild.channels.fetch(CREATOR_REGISTRY_CHANNEL_ID).catch(() => null);
-  if (creatorChannel?.isTextBased()) {
-    const old = await findMarkerMessage(creatorChannel, PANEL_MARKER_CREATORS);
-    const payload = await buildCreatorRegistryPanelPayload();
-    if (!old) await creatorChannel.send(payload).catch(() => {});
-    else await old.edit(payload).catch(() => {});
-  }
-
   const controlChannel = await guild.channels.fetch(CONTROL_PANEL_CHANNEL_ID).catch(() => null);
   if (controlChannel?.isTextBased()) {
     const old = await findMarkerMessage(controlChannel, PANEL_MARKER_CONTROL);
@@ -771,6 +891,8 @@ async function ensurePanels(guild) {
     if (!old) await controlChannel.send(payload).catch(() => {});
     else await old.edit(payload).catch(() => {});
   }
+
+  await updateCreatorBoard(guild).catch(() => {});
 }
 
 // ======================================================
@@ -810,6 +932,9 @@ client.on("guildMemberAdd", async (member) => {
 // ======================================================
 client.once("clientReady", async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
+  sortCreators();
+  saveCreators();
+
   for (const [, guild] of client.guilds.cache) {
     await ensurePanels(guild).catch(() => {});
   }
@@ -822,7 +947,7 @@ client.on("messageDelete", async (message) => {
       !footer.includes(PANEL_MARKER_RP) &&
       !footer.includes(PANEL_MARKER_SERVICES) &&
       !footer.includes(PANEL_MARKER_CONTROL) &&
-      !footer.includes(PANEL_MARKER_CREATORS)
+      !footer.includes(PANEL_MARKER_CREATOR_BOARD)
     ) return;
 
     if (!message.guildId) return;
@@ -873,7 +998,7 @@ async function startDmFlow(user, guild, type) {
       type === "rp"
         ? "✅ بدأنا تقديم السيرفر في الخاص.\nأجب على الأسئلة بدقة.\n⚠️ قصة الشخصية يجب أن تكون 150 كلمة على الأقل."
         : type === "creator"
-        ? "✅ بدأنا تقديم صانع المحتوى في الخاص.\nأجب على الأسئلة بدقة."
+        ? "✅ بدأنا تقديم صانع المحتوى في الخاص.\nأجب على الأسئلة بدقة.\n⚠️ يفضل وضع الأرقام بشكل واضح."
         : "✅ بدأنا تقديم الإدارة في الخاص.\nأجب على الأسئلة بدقة.";
 
     await user.send(intro);
@@ -889,6 +1014,17 @@ async function startDmFlow(user, guild, type) {
 // ======================================================
 // REVIEW SEND
 // ======================================================
+function parsedCreatorInfoFromAnswers(answers) {
+  const parsed = parseCreatorLink(answers.channelLink || "");
+  return {
+    parsed,
+    platform: parsed?.platform || "Unknown",
+    channelName: parsed?.name || "Unknown",
+    followers: toNumberLoose(answers.followers),
+    avgViews: toNumberLoose(answers.avgViews),
+  };
+}
+
 async function submitRpToReview(guild, userId, answers) {
   const ch = await guild.channels.fetch(RP_REVIEW_CHANNEL_ID).catch(() => null);
   if (!ch?.isTextBased()) return;
@@ -912,10 +1048,16 @@ async function submitCreatorToReview(guild, userId, answers) {
   const ch = await guild.channels.fetch(CREATOR_REVIEW_CHANNEL_ID).catch(() => null);
   if (!ch?.isTextBased()) return;
 
+  const info = parsedCreatorInfoFromAnswers(answers);
+
   const embed = new EmbedBuilder()
-    .setColor(0x00c853)
+    .setColor(info.parsed?.color || 0x00c853)
     .setTitle("🎥 طلب صانع محتوى جديد")
-    .addFields(reviewFieldsFromQuestions(CREATOR_QUESTIONS, answers))
+    .addFields(
+      reviewFieldsFromQuestions(CREATOR_QUESTIONS, answers),
+      { name: "المنصة المستخرجة", value: safeTrim(info.platform, 100) || "-", inline: true },
+      { name: "اسم القناة المستخرج", value: safeTrim(info.channelName, 100) || "-", inline: true }
+    )
     .setFooter({ text: `user:${userId}` })
     .setTimestamp();
 
@@ -1111,16 +1253,86 @@ async function openTicketRatingReasonModal(interaction, channelId, stars) {
 async function openCreatorLinkModal(interaction) {
   const modal = new ModalBuilder()
     .setCustomId("modal_add_creator_link")
-    .setTitle("إضافة رابط منصة");
+    .setTitle("إضافة / تعديل بيانات صانع محتوى");
 
-  const input = new TextInputBuilder()
+  const link = new TextInputBuilder()
     .setCustomId("link")
     .setLabel("ضع رابط المنصة")
     .setPlaceholder("مثال: https://twitch.tv/shady")
     .setStyle(TextInputStyle.Short)
     .setRequired(true);
 
-  modal.addComponents(new ActionRowBuilder().addComponents(input));
+  const followers = new TextInputBuilder()
+    .setCustomId("followers")
+    .setLabel("عدد المتابعين / المشتركين")
+    .setPlaceholder("مثال: 12000")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  const avgViews = new TextInputBuilder()
+    .setCustomId("avgViews")
+    .setLabel("متوسط المشاهدات")
+    .setPlaceholder("مثال: 4500")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(link),
+    new ActionRowBuilder().addComponents(followers),
+    new ActionRowBuilder().addComponents(avgViews)
+  );
+
+  await interaction.showModal(modal);
+}
+
+async function openManualCreatorModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId("modal_manual_add_creator")
+    .setTitle("إضافة / تعديل صانع محتوى يدويًا");
+
+  const userId = new TextInputBuilder()
+    .setCustomId("userId")
+    .setLabel("Discord User ID")
+    .setPlaceholder("ضع آيدي العضو")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  const name = new TextInputBuilder()
+    .setCustomId("name")
+    .setLabel("اسم القناة")
+    .setPlaceholder("اسم القناة أو الحساب")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  const link = new TextInputBuilder()
+    .setCustomId("link")
+    .setLabel("الرابط")
+    .setPlaceholder("https://...")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  const followers = new TextInputBuilder()
+    .setCustomId("followers")
+    .setLabel("المتابعين")
+    .setPlaceholder("مثال: 10000")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  const avgViews = new TextInputBuilder()
+    .setCustomId("avgViews")
+    .setLabel("متوسط المشاهدات")
+    .setPlaceholder("مثال: 3000")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(userId),
+    new ActionRowBuilder().addComponents(name),
+    new ActionRowBuilder().addComponents(link),
+    new ActionRowBuilder().addComponents(followers),
+    new ActionRowBuilder().addComponents(avgViews)
+  );
+
   await interaction.showModal(modal);
 }
 
@@ -1134,8 +1346,47 @@ client.on("interactionCreate", async (interaction) => {
       if (interaction.customId === "ticket_select") {
         const type = interaction.values[0];
         if (type === "closed") {
-          return replyEphemeral(interaction, "⚠️ جميع التذاكر مغلقة حاليًا.");
+          return replyEphemeral(interaction, "⚠️ جميع الخدمات مغلقة حاليًا.");
         }
+
+        if (type === "creator_apply") {
+          if (!settings.creatorApply) {
+            return replyEphemeral(interaction, "⚠️ تقديم صانع المحتوى مغلق حاليًا.");
+          }
+
+          const result = await startDmFlow(interaction.user, interaction.guild, "creator");
+          if (!result.ok) {
+            if (result.reason === "active") {
+              return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
+            }
+            if (result.reason === "dm_closed") {
+              return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
+            }
+            return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
+          }
+
+          return replyEphemeral(interaction, "✅ تم إرسال نموذج صانع المحتوى إلى الخاص (DM).");
+        }
+
+        if (type === "admin_apply") {
+          if (!settings.adminApply) {
+            return replyEphemeral(interaction, "⚠️ تقديم الإدارة مغلق حاليًا.");
+          }
+
+          const result = await startDmFlow(interaction.user, interaction.guild, "admin");
+          if (!result.ok) {
+            if (result.reason === "active") {
+              return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
+            }
+            if (result.reason === "dm_closed") {
+              return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
+            }
+            return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
+          }
+
+          return replyEphemeral(interaction, "✅ تم إرسال نموذج الإدارة إلى الخاص (DM).");
+        }
+
         return createTicket(interaction, type);
       }
     }
@@ -1178,6 +1429,14 @@ client.on("interactionCreate", async (interaction) => {
         return;
       }
 
+      if (customId === "manual_add_creator") {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) {
+          return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+        }
+        return openManualCreatorModal(interaction);
+      }
+
       // ===== FEEDBACK SERVER =====
       if (customId === "open_feedback") {
         if (!settings.feedback) {
@@ -1209,7 +1468,7 @@ client.on("interactionCreate", async (interaction) => {
         return openFeedbackReasonModal(interaction, stars);
       }
 
-      // ===== CREATOR REGISTRY BUTTON =====
+      // ===== SELF CREATOR ADD / UPDATE =====
       if (customId === "add_creator_link") {
         if (!settings.creatorRegistry) {
           return replyEphemeral(interaction, "⚠️ تسجيل صناع المحتوى مغلق حاليًا.");
@@ -1241,46 +1500,6 @@ client.on("interactionCreate", async (interaction) => {
         }
 
         return replyEphemeral(interaction, "✅ تم إرسال نموذج التقديم إلى الخاص (DM).");
-      }
-
-      // ===== CREATOR APPLY =====
-      if (customId === "start_creator_apply") {
-        if (!settings.creatorApply) {
-          return replyEphemeral(interaction, "⚠️ تقديم صانع المحتوى مغلق حاليًا.");
-        }
-
-        const result = await startDmFlow(interaction.user, interaction.guild, "creator");
-        if (!result.ok) {
-          if (result.reason === "active") {
-            return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
-          }
-          if (result.reason === "dm_closed") {
-            return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
-          }
-          return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
-        }
-
-        return replyEphemeral(interaction, "✅ تم إرسال نموذج صانع المحتوى إلى الخاص (DM).");
-      }
-
-      // ===== ADMIN APPLY =====
-      if (customId === "start_admin_apply") {
-        if (!settings.adminApply) {
-          return replyEphemeral(interaction, "⚠️ تقديم الإدارة مغلق حاليًا.");
-        }
-
-        const result = await startDmFlow(interaction.user, interaction.guild, "admin");
-        if (!result.ok) {
-          if (result.reason === "active") {
-            return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
-          }
-          if (result.reason === "dm_closed") {
-            return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
-          }
-          return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
-        }
-
-        return replyEphemeral(interaction, "✅ تم إرسال نموذج الإدارة إلى الخاص (DM).");
       }
 
       // ===== CLAIM TICKET =====
@@ -1363,6 +1582,34 @@ client.on("interactionCreate", async (interaction) => {
 
         if (customId.startsWith("approve_creator_")) {
           await target.roles.add(CREATOR_ROLE_ID).catch(() => {});
+
+          const footerText = interaction.message?.embeds?.[0]?.footer?.text || "";
+          const extractedUserId = footerText.match(/user:([^\s]+)/)?.[1] || userId;
+          if (String(extractedUserId) === String(userId)) {
+            // نحاول نسحب البيانات من نفس الـ embed لو موجودة
+            const sessionLike = interaction.message?.embeds?.[0];
+            const fields = sessionLike?.fields || [];
+
+            const answersMap = {};
+            for (const field of fields) {
+              const key =
+                CREATOR_QUESTIONS.find((q) => field.name.startsWith(q.q.slice(0, 10)))?.key || null;
+              if (key) answersMap[key] = field.value;
+            }
+
+            const parsed = parseCreatorLink(answersMap.channelLink || "");
+            addOrUpdateCreator({
+              userId,
+              name: parsed?.name || target.user.username,
+              platform: parsed?.platform || "Unknown",
+              link: answersMap.channelLink || "",
+              followers: answersMap.followers || 0,
+              avgViews: answersMap.avgViews || 0,
+            });
+          }
+
+          await updateCreatorBoard(interaction.guild).catch(() => {});
+
           try {
             await target.send({ embeds: [creatorAcceptEmbed()] });
           } catch {}
@@ -1449,10 +1696,9 @@ client.on("interactionCreate", async (interaction) => {
             } catch {}
           }
 
-          const rows = disableMessageComponents(interaction.message);
-          await interaction.update({
-            content: `❌ تم رفض تقديم السيرفر بواسطة ${interaction.user}.`,
-            components: rows,
+          await interaction.reply({
+            content: `❌ تم رفض تقديم السيرفر للعضو <@${userId}>.`,
+            flags: MessageFlags.Ephemeral,
           }).catch(() => {});
           return;
         }
@@ -1464,10 +1710,9 @@ client.on("interactionCreate", async (interaction) => {
             } catch {}
           }
 
-          const rows = disableMessageComponents(interaction.message);
-          await interaction.update({
-            content: `❌ تم رفض طلب صانع المحتوى بواسطة ${interaction.user}.`,
-            components: rows,
+          await interaction.reply({
+            content: `❌ تم رفض طلب صانع المحتوى للعضو <@${userId}>.`,
+            flags: MessageFlags.Ephemeral,
           }).catch(() => {});
           return;
         }
@@ -1479,10 +1724,9 @@ client.on("interactionCreate", async (interaction) => {
             } catch {}
           }
 
-          const rows = disableMessageComponents(interaction.message);
-          await interaction.update({
-            content: `❌ تم رفض طلب الإدارة بواسطة ${interaction.user}.`,
-            components: rows,
+          await interaction.reply({
+            content: `❌ تم رفض طلب الإدارة للعضو <@${userId}>.`,
+            flags: MessageFlags.Ephemeral,
           }).catch(() => {});
           return;
         }
@@ -1621,15 +1865,17 @@ client.on("interactionCreate", async (interaction) => {
         return;
       }
 
-      // ===== CREATOR LINK REGISTRY MODAL =====
+      // ===== SELF CREATOR LINK REGISTRY MODAL =====
       if (id === "modal_add_creator_link") {
         if (!settings.creatorRegistry) {
           return replyEphemeral(interaction, "⚠️ تسجيل صناع المحتوى مغلق حاليًا.");
         }
 
         const link = interaction.fields.getTextInputValue("link");
-        const parsed = parseCreatorLink(link);
+        const followers = interaction.fields.getTextInputValue("followers");
+        const avgViews = interaction.fields.getTextInputValue("avgViews");
 
+        const parsed = parseCreatorLink(link);
         if (!parsed) {
           return interaction.reply({
             content: "❌ الرابط غير مدعوم حاليًا. جرّب Twitch أو Kick أو YouTube أو TikTok.",
@@ -1637,36 +1883,77 @@ client.on("interactionCreate", async (interaction) => {
           });
         }
 
-        if (findExistingCreator(interaction.user.id, parsed.link)) {
-          return interaction.reply({
-            content: "⚠️ هذا الرابط مسجل بالفعل عندك.",
-            flags: MessageFlags.Ephemeral,
-          });
-        }
+        const apiData = await tryAutoFetchCreatorStats(parsed).catch(() => null);
 
-        creators.push({
+        addOrUpdateCreator({
           userId: interaction.user.id,
-          platform: parsed.platform,
           name: parsed.name,
+          platform: parsed.platform,
           link: parsed.link,
-          addedAt: new Date().toISOString(),
+          followers: apiData?.followers ?? followers,
+          avgViews: apiData?.avgViews ?? avgViews,
         });
-        saveCreators();
 
-        const creatorChannel = await interaction.guild.channels.fetch(CREATOR_REGISTRY_CHANNEL_ID).catch(() => null);
-        if (creatorChannel?.isTextBased()) {
-          await creatorChannel.send({
-            embeds: [creatorRegistryEmbed(parsed, interaction.user.id)],
+        const boardChannel = await interaction.guild.channels.fetch(CREATOR_BOARD_CHANNEL_ID).catch(() => null);
+        if (boardChannel?.isTextBased()) {
+          await boardChannel.send({
+            embeds: [
+              creatorRegistryEmbed(
+                {
+                  ...parsed,
+                  followers: apiData?.followers ?? followers,
+                  avgViews: apiData?.avgViews ?? avgViews,
+                },
+                interaction.user.id
+              ),
+            ],
           }).catch(() => {});
         }
 
+        await updateCreatorBoard(interaction.guild).catch(() => {});
+
         await interaction.reply({
           content:
-            `✅ تم تسجيل رابطك بنجاح.\n` +
+            `✅ تم حفظ بياناتك بنجاح.\n` +
             `المنصة: ${parsed.platform}\n` +
-            `الاسم المستخرج: ${parsed.name}`,
+            `الاسم المستخرج: ${parsed.name}\n` +
+            `المتابعين: ${formatNum(apiData?.followers ?? followers)}\n` +
+            `متوسط المشاهدات: ${formatNum(apiData?.avgViews ?? avgViews)}`,
           flags: MessageFlags.Ephemeral,
         });
+        return;
+      }
+
+      // ===== MANUAL ADD / UPDATE CREATOR =====
+      if (id === "modal_manual_add_creator") {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) {
+          return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+        }
+
+        const userId = interaction.fields.getTextInputValue("userId").trim();
+        const name = interaction.fields.getTextInputValue("name");
+        const link = interaction.fields.getTextInputValue("link");
+        const followers = interaction.fields.getTextInputValue("followers");
+        const avgViews = interaction.fields.getTextInputValue("avgViews");
+
+        const parsed = parseCreatorLink(link);
+
+        addOrUpdateCreator({
+          userId,
+          name: name || parsed?.name || "Unknown",
+          platform: parsed?.platform || "Unknown",
+          link,
+          followers,
+          avgViews,
+        });
+
+        await updateCreatorBoard(interaction.guild).catch(() => {});
+
+        await interaction.reply({
+          content: `✅ تم إضافة / تعديل صانع المحتوى <@${userId}> بنجاح.`,
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
         return;
       }
     }
@@ -1727,6 +2014,22 @@ client.on("messageCreate", async (msg) => {
         );
 
         endSession(msg.author.id);
+        return;
+      }
+    }
+
+    if (session.type === "creator" && ["followers", "avgViews"].includes(current.key)) {
+      const n = toNumberLoose(answer);
+      if (!n || n < 1) {
+        await msg.author.send("❌ يرجى كتابة رقم صحيح وواضح.");
+        return;
+      }
+    }
+
+    if (session.type === "creator" && current.key === "channelLink") {
+      const parsed = parseCreatorLink(answer);
+      if (!parsed) {
+        await msg.author.send("❌ الرابط غير مدعوم حاليًا. استخدم Twitch أو Kick أو YouTube أو TikTok.");
         return;
       }
     }
@@ -1796,6 +2099,11 @@ client.on("messageCreate", async (msg) => {
     if (session.type === "rp") {
       await submitRpToReview(guild, msg.author.id, session.answers);
     } else if (session.type === "creator") {
+      const parsed = parseCreatorLink(session.answers.channelLink || "");
+      if (parsed) {
+        session.answers.platform = parsed.platform;
+        session.answers.channelName = parsed.name;
+      }
       await submitCreatorToReview(guild, msg.author.id, session.answers);
     } else {
       await submitAdminToReview(guild, msg.author.id, session.answers);
