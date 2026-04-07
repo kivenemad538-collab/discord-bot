@@ -18,32 +18,6 @@ const {
   AttachmentBuilder,
 } = require("discord.js");
 
-// 👇 ضيف ده هنا
-const { createCanvas, loadImage } = require("canvas");
-
-async function createWelcomeImage(member) {
-  const canvas = createCanvas(1024, 256);
-  const ctx = canvas.getContext("2d");
-
-  const background = await loadImage("https://cdn.discordapp.com/attachments/1465610622522888265/1490813511222169730/0CD9CBF9-ABC9-496B-8952-EEB34F0D56DB.png?ex=69d56bc7&is=69d41a47&hm=ca9627b649240ae68ade22000ddaa952fb47ea953c3bf2026b0098960acc7dc2&");
-  ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-
-  const avatar = await loadImage(member.user.displayAvatarURL({ extension: "png" }));
-
-  const size = 180;
-  const x = 40;
-  const y = 38;
-
-  ctx.beginPath();
-  ctx.arc(x + size / 2, y + size / 2, size / 2, 0, Math.PI * 2);
-  ctx.closePath();
-  ctx.clip();
-
-  ctx.drawImage(avatar, x, y, size, size);
-
-  return canvas.toBuffer();
-}
-
 // ======================================================
 // CONFIG
 // ======================================================
@@ -946,21 +920,10 @@ client.on("guildMemberAdd", async (member) => {
       .setDisabled(!settings.feedback)
   );
 
-
-client.on("guildMemberAdd", async (member) => {
-  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
-  if (!channel) return;
-
-  const image = await createWelcomeImage(member);
-
   await channel.send({
-    content: `مرحباً <@${member.id}> 👋`,
-    files: [
-      {
-        attachment: image,
-        name: "welcome.png"
-      }
-    ]
+    content: `<@${member.id}>`,
+    embeds: [buildWelcomeEmbed(member)],
+    components: [row],
   }).catch(() => {});
 });
 
