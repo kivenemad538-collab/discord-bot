@@ -30,13 +30,13 @@ const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET || "";
 
 // ================= CUSTOM LINKS / BRANDING =================
 // حط هنا لينك صورة اللوجو
-const SERVER_LOGO_URL = "PUT_SERVER_LOGO_IMAGE_LINK_HERE";
+const SERVER_LOGO_URL = "https://cdn.discordapp.com/attachments/1466112784587821189/1478302405102931998/ChatGPT_Image_Feb_24_2026_05_21_31_PM.png?ex=69daa9a6&is=69d95826&hm=2eb51daf3a7021a3efe6a80315028f30803f502063be06c0b640af8fe3f5212d&";
 
 // حط هنا لينك قوانين السيرفر
-const SERVER_RULES_LINK = "PUT_SERVER_RULES_LINK_HERE";
+const SERVER_RULES_LINK = "https://docs.google.com/document/d/1dKZLMztoq_Z1MJfW4JVG3Y-Y8baNOds2VJ3QxJ_LeIE/edit?tab=t.0";
 
 // حط هنا لينك قوانين الديسكورد
-const DISCORD_RULES_LINK = "PUT_DISCORD_RULES_LINK_HERE";
+const DISCORD_RULES_LINK = "https://docs.google.com/document/d/1dKZLMztoq_Z1MJfW4JVG3Y-Y8baNOds2VJ3QxJ_LeIE/edit?tab=t.1mbusaffy3vv";
 
 const SERVER_NAME = "Night City RP";
 
