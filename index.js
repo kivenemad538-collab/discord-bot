@@ -28,11 +28,26 @@ const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "";
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID || "";
 const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET || "";
 
+// ================= CUSTOM LINKS / BRANDING =================
+// حط هنا لينك صورة اللوجو
+const SERVER_LOGO_URL = "PUT_SERVER_LOGO_IMAGE_LINK_HERE";
+
+// حط هنا لينك قوانين السيرفر
+const SERVER_RULES_LINK = "PUT_SERVER_RULES_LINK_HERE";
+
+// حط هنا لينك قوانين الديسكورد
+const DISCORD_RULES_LINK = "PUT_DISCORD_RULES_LINK_HERE";
+
+const SERVER_NAME = "Night City RP";
+
 // ================= CHANNEL IDS =================
 const WELCOME_CHANNEL_ID = "1465609782680621254";
 const RULES_CHANNEL_ID = "1465786939755200687";
 const FEEDBACK_CHANNEL_ID = "1480098551248715896";
 const CONTROL_PANEL_CHANNEL_ID = "1480098674578034698";
+
+// روم المساعدات / المشاكل / AI
+const HELP_CHANNEL_ID = "PUT_HELP_CHANNEL_ID_HERE";
 
 // روم بانل تقديم السيرفر فقط
 const RP_APPLY_PANEL_CHANNEL_ID = "1465803291714785481";
@@ -75,10 +90,12 @@ const RP_REJECT1_ROLE_ID = "1477568923208519681";
 const RP_REJECT2_ROLE_ID = "1477569051185119332";
 
 // ================= PANEL MARKERS =================
-const PANEL_MARKER_RP = "PANEL_RP_APPLY_v9";
-const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v9";
-const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v9";
-const PANEL_MARKER_CREATOR_BOARD = "PANEL_CREATOR_BOARD_v3";
+const PANEL_MARKER_RP = "PANEL_RP_APPLY_v10";
+const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v10";
+const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v10";
+const PANEL_MARKER_CREATOR_BOARD = "PANEL_CREATOR_BOARD_v4";
+const PANEL_MARKER_RULES = "PANEL_RULES_v1";
+const PANEL_MARKER_HELP = "PANEL_HELP_v1";
 
 // ======================================================
 // FILES
@@ -167,6 +184,8 @@ const defaultSettings = {
   feedback: true,
   creatorRegistry: true,
   creatorBoardMessageId: null,
+  rulesMessageId: null,
+  helpMessageId: null,
 };
 
 function readJsonFile(file, fallback) {
@@ -412,6 +431,87 @@ async function createTranscriptFile(channel) {
   return filePath;
 }
 
+// ================= AI HELP SYSTEM =================
+function getAiReply(problem, lang = "ar") {
+  const text = String(problem || "").toLowerCase();
+
+  const replyAr = () => {
+    if (text.includes("ticket") || text.includes("تذكر") || text.includes("التذكره") || text.includes("التذكرة")) {
+      return "غالبًا المشكلة من صلاحيات البوت أو كاتيجوري التذاكر أو ترتيب الرتب. تأكد أن البوت لديه Manage Channels و View Channel وأن الـ Category ID صحيح.";
+    }
+    if (text.includes("railway")) {
+      return "مشكلة Railway غالبًا من عدم عمل deploy جديد أو sleep mode. اعمل Redeploy وتأكد أن المشروع يأخذ آخر نسخة من GitHub.";
+    }
+    if (text.includes("offline") || text.includes("bot off") || text.includes("البوت واقف") || text.includes("البوت اوف")) {
+      return "تأكد أن TOKEN موجود في Railway وأن البوت Logged in في اللوجز. راجع أيضًا وجود أي خطأ أثناء التشغيل.";
+    }
+    if (text.includes("rank") || text.includes("role") || text.includes("رتب") || text.includes("رول")) {
+      return "تأكد أن رتبة البوت أعلى من الرتب التي يديرها أو يمنحها، وإلا لن يستطيع إعطاء الرتب أو التحكم في القنوات.";
+    }
+    if (text.includes("dm") || text.includes("خاص")) {
+      return "تأكد أن الخاص مفتوح من إعدادات ديسكورد، لأن بعض النماذج والتقديمات تعتمد على الرسائل الخاصة.";
+    }
+    if (text.includes("review") || text.includes("مراجعة")) {
+      return "راجع IDs قنوات المراجعة وتأكد أن البوت لديه صلاحية View Channel و Send Messages داخلها.";
+    }
+    if (text.includes("rules") || text.includes("قوانين")) {
+      return "تأكد من روابط القوانين في الإعدادات أعلى الكود، وتأكد أن صورة اللوجو والرابطين صحيحين ومتاحين.";
+    }
+    return "راجع Logs في Railway أولًا، ثم تأكد من: الصلاحيات، IDs، ترتيب الرتب، وروابط القوانين. لو الخطأ مستمر فالمشكلة غالبًا من الإعدادات وليس من تشغيل البوت نفسه.";
+  };
+
+  const replyEn = () => {
+    if (text.includes("ticket")) {
+      return "This is usually a permissions issue, wrong ticket category ID, or role hierarchy problem. Make sure the bot has Manage Channels and View Channel and the category ID is correct.";
+    }
+    if (text.includes("railway")) {
+      return "Railway issues are often caused by no fresh deploy or sleep mode. Redeploy and make sure Railway is using the latest GitHub version.";
+    }
+    if (text.includes("offline") || text.includes("bot off")) {
+      return "Make sure TOKEN exists in Railway and check that the bot is logged in successfully in the logs.";
+    }
+    if (text.includes("role") || text.includes("rank")) {
+      return "Make sure the bot role is above the roles it manages. Otherwise it cannot assign roles or manage channels.";
+    }
+    if (text.includes("dm")) {
+      return "Make sure DMs are enabled because some application flows depend on private messages.";
+    }
+    if (text.includes("review")) {
+      return "Check your review channel IDs and make sure the bot can View Channel and Send Messages there.";
+    }
+    if (text.includes("rules")) {
+      return "Check your rules links and logo URL in the config section. Make sure all links are valid and public.";
+    }
+    return "Check Railway logs first, then verify permissions, IDs, role hierarchy, and rules links. The issue is usually in the setup, not the login.";
+  };
+
+  return lang === "en" ? replyEn() : replyAr();
+}
+
+async function sendHelpLog(guild, userId, lang, problem) {
+  const ch = await guild.channels.fetch(HELP_CHANNEL_ID).catch(() => null);
+  if (!ch?.isTextBased()) return;
+
+  const embed = new EmbedBuilder()
+    .setColor(0xff0000)
+    .setTitle("AI Help Request")
+    .addFields(
+      { name: "User", value: `<@${userId}>`, inline: true },
+      { name: "Language", value: lang === "en" ? "English" : "Arabic", inline: true },
+      { name: "Problem", value: safeTrim(problem, 1900), inline: false }
+    )
+    .setFooter({ text: `${SERVER_NAME} • AI Help` })
+    .setTimestamp();
+
+  await ch.send({ embeds: [embed] }).catch(() => {});
+}
+
+async function notifyHelpChannel(guild, text) {
+  const ch = await guild.channels.fetch(HELP_CHANNEL_ID).catch(() => null);
+  if (!ch?.isTextBased()) return;
+  await ch.send({ content: text }).catch(() => {});
+}
+
 // ======================================================
 // CREATOR LINK PARSER
 // ======================================================
@@ -600,8 +700,6 @@ function creatorRegistryEmbed(data, discordUserId) {
 async function tryAutoFetchCreatorStats(parsed) {
   if (!parsed) return null;
 
-  // هنا تقدر تضيف YouTube/Twitch API بعدين
-  // حاليًا يرجع null فيكمل بالمدخل اليدوي
   if (parsed.platform === "YouTube" && YOUTUBE_API_KEY) {
     return null;
   }
@@ -629,6 +727,39 @@ function buildWelcomeEmbed(member) {
     .setThumbnail(member.user.displayAvatarURL())
     .setFooter({ text: "Night City RP" })
     .setTimestamp();
+}
+
+function buildRulesEmbed() {
+  return new EmbedBuilder()
+    .setColor(0xff0000)
+    .setAuthor({
+      name: SERVER_NAME,
+      iconURL: SERVER_LOGO_URL || undefined,
+    })
+    .setDescription(
+      "قوانين ليست للتهاون\n\n" +
+      "جميع القوانين قابلة للتغيير في أي وقت.\n" +
+      "يرجى الاطلاع عليها من حين لآخر لضمان معرفتك بأحدث التحديثات."
+    )
+    .setImage(SERVER_LOGO_URL || null)
+    .setFooter({
+      text: SERVER_NAME,
+    });
+}
+
+function buildHelpEmbed() {
+  return new EmbedBuilder()
+    .setColor(0xff0000)
+    .setAuthor({
+      name: SERVER_NAME,
+      iconURL: SERVER_LOGO_URL || undefined,
+    })
+    .setDescription(
+      "إذا عندك أي مشكلة في السيرفر أو البوت، اختر اللغة أو استخدم AI واكتب المشكلة."
+    )
+    .setFooter({
+      text: `${SERVER_NAME} • Help Center`,
+    });
 }
 
 function rpAcceptEmbed(guildId) {
@@ -804,7 +935,8 @@ async function buildServicesPanelPayload() {
     .setDescription(
       "اختر من القائمة بالأسفل.\n\n" +
         "• الدعم / الاستئناف / الشكوى / الاقتراح = يفتح تذكرة\n" +
-        "• تقديم صانع محتوى / تقديم إدارة = يرسل النموذج في الخاص"
+        "• تقديم صانع محتوى / تقديم إدارة = يرسل النموذج في الخاص\n" +
+        "• AI Help = حل أي مشكلة عامة في السيرفر أو البوت"
     )
     .setFooter({ text: `Night City RP • ${PANEL_MARKER_SERVICES}` });
 
@@ -815,6 +947,13 @@ async function buildServicesPanelPayload() {
   if (settings.suggest) options.push({ label: "اقتراح", description: "فتح تذكرة اقتراح", value: "suggest", emoji: "💡" });
   if (settings.creatorApply) options.push({ label: "تقديم صانع محتوى", description: "إرسال نموذج صانع المحتوى في الخاص", value: "creator_apply", emoji: "🎥" });
   if (settings.adminApply) options.push({ label: "تقديم إدارة", description: "إرسال نموذج الإدارة في الخاص", value: "admin_apply", emoji: "🛡️" });
+
+  options.push({
+    label: "AI Help",
+    description: "مساعدة لأي مشكلة في السيرفر أو البوت",
+    value: "ai_help",
+    emoji: "🤖"
+  });
 
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
@@ -867,6 +1006,50 @@ async function buildControlPanelPayload() {
   return { embeds: [embed], components: [row1, row2, row3, row4] };
 }
 
+async function buildRulesPanelPayload() {
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setLabel("قوانين السيرفر")
+      .setStyle(ButtonStyle.Link)
+      .setURL(SERVER_RULES_LINK),
+    new ButtonBuilder()
+      .setLabel("قوانين الديسكورد")
+      .setStyle(ButtonStyle.Link)
+      .setURL(DISCORD_RULES_LINK)
+  );
+
+  return {
+    embeds: [
+      buildRulesEmbed().setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_RULES}` })
+    ],
+    components: [row],
+  };
+}
+
+async function buildHelpPanelPayload() {
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("help_ar")
+      .setLabel("عربي")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("help_en")
+      .setLabel("English")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("help_ai")
+      .setLabel("AI")
+      .setStyle(ButtonStyle.Success)
+  );
+
+  return {
+    embeds: [
+      buildHelpEmbed().setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_HELP}` })
+    ],
+    components: [row],
+  };
+}
+
 async function ensurePanels(guild) {
   const rpChannel = await guild.channels.fetch(RP_APPLY_PANEL_CHANNEL_ID).catch(() => null);
   if (rpChannel?.isTextBased()) {
@@ -892,6 +1075,22 @@ async function ensurePanels(guild) {
     else await old.edit(payload).catch(() => {});
   }
 
+  const rulesChannel = await guild.channels.fetch(RULES_CHANNEL_ID).catch(() => null);
+  if (rulesChannel?.isTextBased()) {
+    const old = await findMarkerMessage(rulesChannel, PANEL_MARKER_RULES);
+    const payload = await buildRulesPanelPayload();
+    if (!old) await rulesChannel.send(payload).catch(() => {});
+    else await old.edit(payload).catch(() => {});
+  }
+
+  const helpChannel = await guild.channels.fetch(HELP_CHANNEL_ID).catch(() => null);
+  if (helpChannel?.isTextBased()) {
+    const old = await findMarkerMessage(helpChannel, PANEL_MARKER_HELP);
+    const payload = await buildHelpPanelPayload();
+    if (!old) await helpChannel.send(payload).catch(() => {});
+    else await old.edit(payload).catch(() => {});
+  }
+
   await updateCreatorBoard(guild).catch(() => {});
 }
 
@@ -904,18 +1103,18 @@ client.on("guildMemberAdd", async (member) => {
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setLabel("📜 قوانين السيرفر")
+      .setLabel("قوانين السيرفر")
       .setStyle(ButtonStyle.Link)
-      .setURL(`https://discord.com/channels/${member.guild.id}/${RULES_CHANNEL_ID}`),
+      .setURL(SERVER_RULES_LINK),
 
     new ButtonBuilder()
-      .setLabel("📝 نموذج التقديم على الوايت ليست")
+      .setLabel("نموذج التقديم")
       .setStyle(ButtonStyle.Link)
       .setURL(`https://discord.com/channels/${member.guild.id}/${RP_APPLY_PANEL_CHANNEL_ID}`),
 
     new ButtonBuilder()
       .setCustomId("open_feedback")
-      .setLabel("⭐ تقييم السيرفر")
+      .setLabel("تقييم السيرفر")
       .setStyle(settings.feedback ? ButtonStyle.Primary : ButtonStyle.Secondary)
       .setDisabled(!settings.feedback)
   );
@@ -947,7 +1146,9 @@ client.on("messageDelete", async (message) => {
       !footer.includes(PANEL_MARKER_RP) &&
       !footer.includes(PANEL_MARKER_SERVICES) &&
       !footer.includes(PANEL_MARKER_CONTROL) &&
-      !footer.includes(PANEL_MARKER_CREATOR_BOARD)
+      !footer.includes(PANEL_MARKER_CREATOR_BOARD) &&
+      !footer.includes(PANEL_MARKER_RULES) &&
+      !footer.includes(PANEL_MARKER_HELP)
     ) return;
 
     if (!message.guildId) return;
@@ -1106,8 +1307,13 @@ async function createTicket(interaction, kind) {
   if (kind === "suggest" && !settings.suggest) return replyEphemeral(interaction, "⚠️ الاقتراحات مغلقة حاليًا.");
 
   const categoryId = ticketCategory(kind);
-  const category = await guild.channels.fetch(categoryId).catch(() => null);
+  const category = await guild.channels.fetch(categoryId).catch((err) => {
+    console.log("ticket category fetch error:", err?.message || err);
+    return null;
+  });
+
   if (!category || category.type !== ChannelType.GuildCategory) {
+    await notifyHelpChannel(guild, `❌ فشل فتح تذكرة: كاتيجوري غير موجودة أو غير صحيحة.\nUser: <@${interaction.user.id}>\nType: ${kind}`);
     return replyEphemeral(interaction, "❌ كاتيجوري التذاكر غير صحيحة أو غير موجودة.");
   }
 
@@ -1155,9 +1361,15 @@ async function createTicket(interaction, kind) {
         ],
       })),
     ],
-  }).catch(() => null);
+  }).catch((err) => {
+    console.log("ticket create error:", err?.message || err);
+    return null;
+  });
 
-  if (!channel) return replyEphemeral(interaction, "❌ فشل إنشاء التذكرة.");
+  if (!channel) {
+    await notifyHelpChannel(guild, `❌ فشل إنشاء تذكرة.\nUser: <@${interaction.user.id}>\nType: ${kind}`);
+    return replyEphemeral(interaction, "❌ فشل إنشاء التذكرة.");
+  }
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -1175,7 +1387,9 @@ async function createTicket(interaction, kind) {
     content: `<@${interaction.user.id}>`,
     embeds: [ticketOpenEmbed(interaction.user.id, kind)],
     components: [row],
-  }).catch(() => {});
+  }).catch((err) => {
+    console.log("ticket open send error:", err?.message || err);
+  });
 
   return replyEphemeral(interaction, `✅ تم إنشاء التذكرة بنجاح: ${channel}`);
 }
@@ -1336,6 +1550,21 @@ async function openManualCreatorModal(interaction) {
   await interaction.showModal(modal);
 }
 
+async function openAiProblemModal(interaction, lang) {
+  const modal = new ModalBuilder()
+    .setCustomId(`modal_ai_help_${lang}`)
+    .setTitle(lang === "en" ? "AI Help" : "مساعدة AI");
+
+  const input = new TextInputBuilder()
+    .setCustomId("problem")
+    .setLabel(lang === "en" ? "Describe your problem" : "اكتب مشكلتك")
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true);
+
+  modal.addComponents(new ActionRowBuilder().addComponents(input));
+  await interaction.showModal(modal);
+}
+
 // ======================================================
 // INTERACTIONS
 // ======================================================
@@ -1347,6 +1576,10 @@ client.on("interactionCreate", async (interaction) => {
         const type = interaction.values[0];
         if (type === "closed") {
           return replyEphemeral(interaction, "⚠️ جميع الخدمات مغلقة حاليًا.");
+        }
+
+        if (type === "ai_help") {
+          return openAiProblemModal(interaction, "ar");
         }
 
         if (type === "creator_apply") {
@@ -1394,6 +1627,19 @@ client.on("interactionCreate", async (interaction) => {
     // ================= BUTTONS =================
     if (interaction.isButton()) {
       const { customId } = interaction;
+
+      // ===== HELP CENTER =====
+      if (customId === "help_ar") {
+        return openAiProblemModal(interaction, "ar");
+      }
+
+      if (customId === "help_en") {
+        return openAiProblemModal(interaction, "en");
+      }
+
+      if (customId === "help_ai") {
+        return openAiProblemModal(interaction, "ar");
+      }
 
       // ===== CONTROL =====
       if (customId.startsWith("toggle_")) {
@@ -1586,7 +1832,6 @@ client.on("interactionCreate", async (interaction) => {
           const footerText = interaction.message?.embeds?.[0]?.footer?.text || "";
           const extractedUserId = footerText.match(/user:([^\s]+)/)?.[1] || userId;
           if (String(extractedUserId) === String(userId)) {
-            // نحاول نسحب البيانات من نفس الـ embed لو موجودة
             const sessionLike = interaction.message?.embeds?.[0];
             const fields = sessionLike?.fields || [];
 
@@ -1670,6 +1915,21 @@ client.on("interactionCreate", async (interaction) => {
     // ================= MODAL SUBMIT =================
     if (interaction.isModalSubmit()) {
       const id = interaction.customId;
+
+      // ===== AI HELP =====
+      if (id === "modal_ai_help_ar" || id === "modal_ai_help_en") {
+        const lang = id.endsWith("_en") ? "en" : "ar";
+        const problem = interaction.fields.getTextInputValue("problem");
+        const reply = getAiReply(problem, lang);
+
+        await sendHelpLog(interaction.guild, interaction.user.id, lang, problem);
+
+        await interaction.reply({
+          content: reply,
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+        return;
+      }
 
       if (id.startsWith("modal_reject_")) {
         const parts = id.split("_");
@@ -1959,6 +2219,9 @@ client.on("interactionCreate", async (interaction) => {
     }
   } catch (e) {
     console.log("interaction error:", e?.message || e);
+    if (interaction.guild) {
+      await notifyHelpChannel(interaction.guild, `❌ Interaction Error: ${e?.message || e}`);
+    }
     if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
       interaction.reply({
         content: "❌ حدث خطأ غير متوقع، فضلاً راجع السجل.",
