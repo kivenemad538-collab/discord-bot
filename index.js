@@ -29,14 +29,14 @@ const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID || "";
 const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET || "";
 
 // ================= CUSTOM LINKS / BRANDING =================
-// حط هنا لينك صورة اللوجو
-const SERVER_LOGO_URL = "https://cdn.discordapp.com/attachments/1466112784587821189/1478302405102931998/ChatGPT_Image_Feb_24_2026_05_21_31_PM.png?ex=69daa9a6&is=69d95826&hm=2eb51daf3a7021a3efe6a80315028f30803f502063be06c0b640af8fe3f5212d&";
+const SERVER_LOGO_URL =
+  "https://cdn.discordapp.com/attachments/1466112784587821189/1478302405102931998/ChatGPT_Image_Feb_24_2026_05_21_31_PM.png?ex=69daa9a6&is=69d95826&hm=2eb51daf3a7021a3efe6a80315028f30803f502063be06c0b640af8fe3f5212d&";
 
-// حط هنا لينك قوانين السيرفر
-const SERVER_RULES_LINK = "https://docs.google.com/document/d/1dKZLMztoq_Z1MJfW4JVG3Y-Y8baNOds2VJ3QxJ_LeIE/edit?tab=t.0";
+const SERVER_RULES_LINK =
+  "https://docs.google.com/document/d/1dKZLMztoq_Z1MJfW4JVG3Y-Y8baNOds2VJ3QxJ_LeIE/edit?tab=t.0";
 
-// حط هنا لينك قوانين الديسكورد
-const DISCORD_RULES_LINK = "https://docs.google.com/document/d/1dKZLMztoq_Z1MJfW4JVG3Y-Y8baNOds2VJ3QxJ_LeIE/edit?tab=t.1mbusaffy3vv";
+const DISCORD_RULES_LINK =
+  "https://docs.google.com/document/d/1dKZLMztoq_Z1MJfW4JVG3Y-Y8baNOds2VJ3QxJ_LeIE/edit?tab=t.1mbusaffy3vv";
 
 const SERVER_NAME = "Night City RP";
 
@@ -57,6 +57,9 @@ const SERVICES_PANEL_CHANNEL_ID = "1465757986684403828";
 
 // روم عرض صناع المحتوى
 const CREATOR_BOARD_CHANNEL_ID = "1490733587363004566";
+
+// بانل العصابات
+const GANGS_PANEL_CHANNEL_ID = SERVICES_PANEL_CHANNEL_ID;
 
 // لو حبيت تستخدمها بعدين لإعلانات اللايف
 const LIVE_CHANNEL_ID = "1490733602663563275";
@@ -90,12 +93,13 @@ const RP_REJECT1_ROLE_ID = "1477568923208519681";
 const RP_REJECT2_ROLE_ID = "1477569051185119332";
 
 // ================= PANEL MARKERS =================
-const PANEL_MARKER_RP = "PANEL_RP_APPLY_v10";
-const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v10";
-const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v10";
-const PANEL_MARKER_CREATOR_BOARD = "PANEL_CREATOR_BOARD_v4";
+const PANEL_MARKER_RP = "PANEL_RP_APPLY_v11";
+const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v11";
+const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v11";
+const PANEL_MARKER_CREATOR_BOARD = "PANEL_CREATOR_BOARD_v5";
 const PANEL_MARKER_RULES = "PANEL_RULES_v1";
 const PANEL_MARKER_HELP = "PANEL_HELP_v1";
+const PANEL_MARKER_GANGS = "PANEL_GANGS_v1";
 
 // ======================================================
 // FILES
@@ -104,6 +108,8 @@ const SETTINGS_FILE = path.join(__dirname, "bot_settings.json");
 const FEEDBACK_FILE = path.join(__dirname, "feedback_users.json");
 const TICKET_RATINGS_FILE = path.join(__dirname, "ticket_ratings.json");
 const CREATORS_FILE = path.join(__dirname, "creators.json");
+const GANGS_FILE = path.join(__dirname, "gangs.json");
+const SESSIONS_FILE = path.join(__dirname, "sessions.json");
 
 // ======================================================
 // QUESTIONS
@@ -156,6 +162,19 @@ const ADMIN_QUESTIONS = [
   { key: "commit", q: "✅ هل تتعهد بالحياد وعدم إساءة استخدام الصلاحيات؟ (نعم/لا)" },
 ];
 
+const GANG_QUESTIONS = [
+  { key: "rpName", q: "🧾 ما اسمك داخل الرول بلاي؟" },
+  { key: "realAge", q: "🎂 كم عمرك الحقيقي؟" },
+  { key: "gangReason", q: "🏴 لماذا تريد تنضم للعصابة؟" },
+  { key: "experience", q: "🎮 ما خبرتك في الرول بلاي أو العصابات؟" },
+  { key: "activity", q: "⏱️ كم ساعة تقدر تتواجد يوميًا؟" },
+  { key: "skills", q: "⚔️ ما الذي ستضيفه للعصابة؟" },
+  { key: "loyalty", q: "🤝 ماذا يعني لك الولاء داخل العصابة؟" },
+  { key: "story", q: "📝 اكتب نبذة محترمة عن شخصيتك وخلفيتها." },
+  { key: "rules", q: "📚 هل قرأت قوانين السيرفر؟ اكتب نعم + أهم 3 نقاط." },
+  { key: "agree", q: "✅ هل توافق على الالتزام بأوامر القيادة وقوانين السيرفر؟ (نعم/لا)" },
+];
+
 // ======================================================
 // CLIENT
 // ======================================================
@@ -183,9 +202,11 @@ const defaultSettings = {
   adminApply: true,
   feedback: true,
   creatorRegistry: true,
+  gangSystem: true,
   creatorBoardMessageId: null,
   rulesMessageId: null,
   helpMessageId: null,
+  gangsPanelMessageId: null,
 };
 
 function readJsonFile(file, fallback) {
@@ -215,6 +236,9 @@ let settings = loadSettings();
 const feedbackUsers = new Set(readJsonFile(FEEDBACK_FILE, []));
 const ticketRatings = readJsonFile(TICKET_RATINGS_FILE, {});
 let creators = readJsonFile(CREATORS_FILE, []);
+let gangs = readJsonFile(GANGS_FILE, []);
+let sessions = readJsonFile(SESSIONS_FILE, {});
+const activeApplications = new Set();
 
 function saveSettings() {
   writeJsonFile(SETTINGS_FILE, settings);
@@ -232,8 +256,13 @@ function saveCreators() {
   writeJsonFile(CREATORS_FILE, creators);
 }
 
-const sessions = new Map();
-const activeApplications = new Set();
+function saveGangs() {
+  writeJsonFile(GANGS_FILE, gangs);
+}
+
+function saveSessions() {
+  writeJsonFile(SESSIONS_FILE, sessions);
+}
 
 // ======================================================
 // HELPERS
@@ -265,9 +294,19 @@ function tooShortAnswer(text) {
   return false;
 }
 
+function setSession(userId, data) {
+  sessions[String(userId)] = data;
+  saveSessions();
+}
+
+function getSession(userId) {
+  return sessions[String(userId)] || null;
+}
+
 function endSession(userId) {
-  sessions.delete(userId);
-  activeApplications.delete(userId);
+  delete sessions[String(userId)];
+  saveSessions();
+  activeApplications.delete(String(userId));
 }
 
 function replyEphemeral(interaction, content) {
@@ -431,6 +470,102 @@ async function createTranscriptFile(channel) {
   return filePath;
 }
 
+// ================= GANG HELPERS =================
+function normalizeGang(raw) {
+  return {
+    id: String(raw.id || Date.now()),
+    name: safeTrim(raw.name || "Gang", 80),
+    reviewRoomId: String(raw.reviewRoomId || ""),
+    roleId: raw.roleId ? String(raw.roleId) : "",
+    limit: Number(raw.limit || 0),
+    open: raw.open !== false,
+    members: Array.isArray(raw.members) ? raw.members.map(String) : [],
+    questions: Array.isArray(raw.questions) && raw.questions.length ? raw.questions : GANG_QUESTIONS,
+    createdAt: raw.createdAt || new Date().toISOString(),
+  };
+}
+
+function normalizeAllGangs() {
+  gangs = gangs.map(normalizeGang);
+  saveGangs();
+}
+
+function getGangById(gangId) {
+  return gangs.find((g) => String(g.id) === String(gangId)) || null;
+}
+
+function currentGangCount(gang) {
+  return Array.isArray(gang?.members) ? gang.members.length : 0;
+}
+
+function isGangFull(gang) {
+  if (!gang) return false;
+  if (!gang.limit || gang.limit < 1) return false;
+  return currentGangCount(gang) >= gang.limit;
+}
+
+function memberAlreadyInGang(gang, userId) {
+  return Array.isArray(gang?.members) && gang.members.includes(String(userId));
+}
+
+function addGangMember(gangId, userId) {
+  const gang = getGangById(gangId);
+  if (!gang) return false;
+  if (!Array.isArray(gang.members)) gang.members = [];
+  if (!gang.members.includes(String(userId))) {
+    gang.members.push(String(userId));
+    saveGangs();
+  }
+  return true;
+}
+
+function removeGangMember(gangId, userId) {
+  const gang = getGangById(gangId);
+  if (!gang) return false;
+  gang.members = (gang.members || []).filter((id) => String(id) !== String(userId));
+  saveGangs();
+  return true;
+}
+
+function chunkButtons(buttons, size = 5) {
+  const rows = [];
+  for (let i = 0; i < buttons.length; i += size) {
+    rows.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + size)));
+  }
+  return rows;
+}
+
+function buildGangReviewFields(gang, answers) {
+  return (gang.questions || GANG_QUESTIONS).map((q) => ({
+    name: safeTrim(q.q, 256),
+    value: safeTrim(answers[q.key], 1024) || "-",
+    inline: false,
+  }));
+}
+
+function extractAnswersFromGangReviewEmbed(embed, gang) {
+  const map = {};
+  const questions = gang.questions || GANG_QUESTIONS;
+  const fields = embed?.fields || [];
+  for (let i = 0; i < questions.length; i++) {
+    map[questions[i].key] = fields[i]?.value || "";
+  }
+  return map;
+}
+
+function buildGangControlSelectOptions() {
+  if (!gangs.length) {
+    return [{ label: "لا توجد عصابات", value: "gang_none", description: "أنشئ عصابة أولًا", emoji: "🚫" }];
+  }
+
+  return gangs.slice(0, 25).map((gang) => ({
+    label: safeTrim(gang.name, 100),
+    value: `gang_manage_${gang.id}`,
+    description: `الأعضاء ${currentGangCount(gang)}/${gang.limit || 0} • ${gang.open ? "مفتوح" : "مغلق"}`,
+    emoji: gang.open ? "🟢" : "🔴",
+  }));
+}
+
 // ================= AI HELP SYSTEM =================
 function getAiReply(problem, lang = "ar") {
   const text = String(problem || "").toLowerCase();
@@ -516,46 +651,17 @@ async function notifyHelpChannel(guild, text) {
 // CREATOR LINK PARSER
 // ======================================================
 const PLATFORMS = [
-  {
-    name: "Twitch",
-    color: 0x9146ff,
-    regex: /twitch\.tv\/([^/?#]+)/i,
-  },
-  {
-    name: "Kick",
-    color: 0x53fc18,
-    regex: /kick\.com\/([^/?#]+)/i,
-  },
-  {
-    name: "YouTube",
-    color: 0xff0000,
-    regex: /youtube\.com\/@([^/?#]+)/i,
-  },
-  {
-    name: "YouTube",
-    color: 0xff0000,
-    regex: /youtube\.com\/channel\/([^/?#]+)/i,
-  },
-  {
-    name: "YouTube",
-    color: 0xff0000,
-    regex: /youtube\.com\/c\/([^/?#]+)/i,
-  },
-  {
-    name: "YouTube",
-    color: 0xff0000,
-    regex: /youtube\.com\/user\/([^/?#]+)/i,
-  },
-  {
-    name: "TikTok",
-    color: 0x111111,
-    regex: /tiktok\.com\/@([^/?#]+)/i,
-  },
+  { name: "Twitch", color: 0x9146ff, regex: /twitch\.tv\/([^/?#]+)/i },
+  { name: "Kick", color: 0x53fc18, regex: /kick\.com\/([^/?#]+)/i },
+  { name: "YouTube", color: 0xff0000, regex: /youtube\.com\/@([^/?#]+)/i },
+  { name: "YouTube", color: 0xff0000, regex: /youtube\.com\/channel\/([^/?#]+)/i },
+  { name: "YouTube", color: 0xff0000, regex: /youtube\.com\/c\/([^/?#]+)/i },
+  { name: "YouTube", color: 0xff0000, regex: /youtube\.com\/user\/([^/?#]+)/i },
+  { name: "TikTok", color: 0x111111, regex: /tiktok\.com\/@([^/?#]+)/i },
 ];
 
 function parseCreatorLink(link) {
   const cleanLink = String(link || "").trim();
-
   for (const p of PLATFORMS) {
     const match = cleanLink.match(p.regex);
     if (match) {
@@ -567,7 +673,6 @@ function parseCreatorLink(link) {
       };
     }
   }
-
   return null;
 }
 
@@ -696,18 +801,10 @@ function creatorRegistryEmbed(data, discordUserId) {
     .setTimestamp();
 }
 
-// Placeholder اختياري
 async function tryAutoFetchCreatorStats(parsed) {
   if (!parsed) return null;
-
-  if (parsed.platform === "YouTube" && YOUTUBE_API_KEY) {
-    return null;
-  }
-
-  if (parsed.platform === "Twitch" && TWITCH_CLIENT_ID && TWITCH_CLIENT_SECRET) {
-    return null;
-  }
-
+  if (parsed.platform === "YouTube" && YOUTUBE_API_KEY) return null;
+  if (parsed.platform === "Twitch" && TWITCH_CLIENT_ID && TWITCH_CLIENT_SECRET) return null;
   return null;
 }
 
@@ -722,7 +819,7 @@ function buildWelcomeEmbed(member) {
       `مرحباً <@${member.id}>\n\n` +
       `أهلاً بك في **Night City RP**\n\n` +
       `يرجى قراءة القوانين ثم التقديم على الوايت ليست.\n` +
-      `ويمكنك أيضًا تقييم السيرفر من الزر بالأسفل.`
+      `ولو حابب تقدم على عصابة هتلاقي بانل العصابات في روم الخدمات.`
     )
     .setThumbnail(member.user.displayAvatarURL())
     .setFooter({ text: "Night City RP" })
@@ -754,9 +851,7 @@ function buildHelpEmbed() {
       name: SERVER_NAME,
       iconURL: SERVER_LOGO_URL || undefined,
     })
-    .setDescription(
-      "إذا عندك أي مشكلة في السيرفر أو البوت، اختر اللغة أو استخدم AI واكتب المشكلة."
-    )
+    .setDescription("إذا عندك أي مشكلة في السيرفر أو البوت، اختر اللغة أو استخدم AI واكتب المشكلة.")
     .setFooter({
       text: `${SERVER_NAME} • Help Center`,
     });
@@ -770,12 +865,12 @@ function rpAcceptEmbed(guildId) {
       .setTitle("🏙️ تم قبولك في السيرفر!")
       .setDescription(
         "━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-          "🎉 **مبروك!**\n\n" +
-          "تم قبول طلبك في **Night City RP**.\n\n" +
-          "الخطوة التالية هي إجراء **المقابلة الصوتية**.\n\n" +
-          "اضغط الزر بالأسفل للدخول إلى غرفة المقابلة.\n\n" +
-          "يرجى الالتزام بالقوانين واحترام الإدارة.\n\n" +
-          "━━━━━━━━━━━━━━━━━━━━━━"
+        "🎉 **مبروك!**\n\n" +
+        "تم قبول طلبك في **Night City RP**.\n\n" +
+        "الخطوة التالية هي إجراء **المقابلة الصوتية**.\n\n" +
+        "اضغط الزر بالأسفل للدخول إلى غرفة المقابلة.\n\n" +
+        "يرجى الالتزام بالقوانين واحترام الإدارة.\n\n" +
+        "━━━━━━━━━━━━━━━━━━━━━━"
       )
       .setFooter({ text: "Night City RP • الإدارة" })
       .setTimestamp(),
@@ -794,13 +889,13 @@ function creatorAcceptEmbed() {
     .setTitle("🎥 تم قبولك كصانع محتوى!")
     .setDescription(
       "━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-        "🎉 **مبروك!**\n\n" +
-        "تم قبولك في **برنامج صناع المحتوى** في سيرفر\n" +
-        "**Night City RP**.\n\n" +
-        "تم تسجيل بياناتك داخل النظام\n" +
-        "وسيتم إضافتك تلقائيًا في لوحة العرض.\n\n" +
-        "نتمنى لك التوفيق.\n\n" +
-        "━━━━━━━━━━━━━━━━━━━━━━"
+      "🎉 **مبروك!**\n\n" +
+      "تم قبولك في **برنامج صناع المحتوى** في سيرفر\n" +
+      "**Night City RP**.\n\n" +
+      "تم تسجيل بياناتك داخل النظام\n" +
+      "وسيتم إضافتك تلقائيًا في لوحة العرض.\n\n" +
+      "نتمنى لك التوفيق.\n\n" +
+      "━━━━━━━━━━━━━━━━━━━━━━"
     )
     .setFooter({ text: "Night City RP • الإدارة" })
     .setTimestamp();
@@ -812,13 +907,13 @@ function adminAcceptEmbed() {
     .setTitle("🛡️ تم قبولك في الإدارة!")
     .setDescription(
       "━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-        "🎉 **مبروك!**\n\n" +
-        "تم قبولك في **فريق إدارة Night City RP**.\n\n" +
-        "تم منحك الرتبة بنجاح.\n\n" +
-        "نرجو منك الالتزام بالقوانين\n" +
-        "والتعامل باحترام مع جميع اللاعبين.\n\n" +
-        "يمنع إساءة استخدام الصلاحيات.\n\n" +
-        "━━━━━━━━━━━━━━━━━━━━━━"
+      "🎉 **مبروك!**\n\n" +
+      "تم قبولك في **فريق إدارة Night City RP**.\n\n" +
+      "تم منحك الرتبة بنجاح.\n\n" +
+      "نرجو منك الالتزام بالقوانين\n" +
+      "والتعامل باحترام مع جميع اللاعبين.\n\n" +
+      "يمنع إساءة استخدام الصلاحيات.\n\n" +
+      "━━━━━━━━━━━━━━━━━━━━━━"
     )
     .setFooter({ text: "Night City RP • الإدارة" })
     .setTimestamp();
@@ -830,9 +925,9 @@ function rpRejectEmbed(reason, finalReject = false) {
     .setTitle(finalReject ? "⛔ تم رفض طلبك نهائيًا" : "❌ تم رفض طلبك في السيرفر")
     .setDescription(
       `⭐ **سبب الرفض:**\n${safeTrim(reason, 1500)}\n\n` +
-        (finalReject
-          ? "تم رفضك **نهائيًا** ولا يمكنك التقديم مرة أخرى."
-          : "يمكنك إعادة التقديم لاحقًا بعد تحسين مستواك.")
+      (finalReject
+        ? "تم رفضك **نهائيًا** ولا يمكنك التقديم مرة أخرى."
+        : "يمكنك إعادة التقديم لاحقًا بعد تحسين مستواك.")
     )
     .setFooter({ text: "Night City RP • الإدارة" })
     .setTimestamp();
@@ -862,9 +957,9 @@ function ticketOpenEmbed(userId, kind) {
     .setTitle("🎫 تم فتح التذكرة بنجاح")
     .setDescription(
       `مرحبًا <@${userId}>.\n\n` +
-        `**نوع التذكرة:** ${ticketLabel(kind)}\n\n` +
-        `اكتب سبب التذكرة أو المشكلة **بالتفصيل** داخل هذه القناة.\n` +
-        `سيقوم أحد أفراد الإدارة باستلامها في أقرب وقت.`
+      `**نوع التذكرة:** ${ticketLabel(kind)}\n\n` +
+      `اكتب سبب التذكرة أو المشكلة **بالتفصيل** داخل هذه القناة.\n` +
+      `سيقوم أحد أفراد الإدارة باستلامها في أقرب وقت.`
     )
     .setFooter({ text: "Night City RP • Tickets" })
     .setTimestamp();
@@ -876,9 +971,9 @@ function ticketClosedDmEmbed(reason, channelName) {
     .setTitle("🔒 تم إغلاق تذكرتك")
     .setDescription(
       `شكرًا لتواصلك مع **Night City RP**.\n\n` +
-        `**اسم التذكرة:** ${channelName}\n\n` +
-        `**سبب الإغلاق:**\n${safeTrim(reason, 1800)}\n\n` +
-        `تم إرفاق Transcript كامل للمحادثة في هذه الرسالة.`
+      `**اسم التذكرة:** ${channelName}\n\n` +
+      `**سبب الإغلاق:**\n${safeTrim(reason, 1800)}\n\n` +
+      `تم إرفاق Transcript كامل للمحادثة في هذه الرسالة.`
     )
     .setFooter({ text: "Night City RP • Support" })
     .setTimestamp();
@@ -890,8 +985,8 @@ function ticketRatingRequestEmbed(channelName) {
     .setTitle("⭐ تقييم الخدمة")
     .setDescription(
       `شكرًا لاستخدامك نظام التذاكر في **Night City RP**.\n\n` +
-        `يرجى تقييم تجربتك في التذكرة **${channelName}** من 1 إلى 5 نجوم.\n` +
-        `بعد اختيار عدد النجوم، سيطلب منك البوت كتابة سبب التقييم.`
+      `يرجى تقييم تجربتك في التذكرة **${channelName}** من 1 إلى 5 نجوم.\n` +
+      `بعد اختيار عدد النجوم، سيطلب منك البوت كتابة سبب التقييم.`
     )
     .setFooter({ text: "Night City RP • Feedback" })
     .setTimestamp();
@@ -905,6 +1000,71 @@ function buildTicketRatingRow(channelId) {
     new ButtonBuilder().setCustomId(`ticket_rate_${channelId}_4`).setLabel("⭐⭐⭐⭐").setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId(`ticket_rate_${channelId}_5`).setLabel("⭐⭐⭐⭐⭐").setStyle(ButtonStyle.Success)
   );
+}
+
+function buildGangPanelEmbed() {
+  const list =
+    gangs.length > 0
+      ? gangs
+          .map((g, i) => {
+            return (
+              `**${i + 1}. ${safeTrim(g.name, 80)}**\n` +
+              `• الحالة: ${g.open ? "🟢 مفتوح" : "🔴 مغلق"}\n` +
+              `• الأعضاء: ${currentGangCount(g)}/${g.limit || 0}`
+            );
+          })
+          .join("\n\n")
+      : "لا توجد عصابات مضافة حاليًا.";
+
+  return new EmbedBuilder()
+    .setColor(0x111111)
+    .setTitle("🏴 بانل تقديم العصابات")
+    .setDescription(
+      "اضغط على زر العصابة التي تريد التقديم عليها.\n" +
+      "التقديم يتم في الخاص DM سؤال ورا سؤال.\n\n" +
+      `${list}`
+    )
+    .setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_GANGS}` })
+    .setTimestamp();
+}
+
+function buildGangAppliedDmEmbed(gangName) {
+  return new EmbedBuilder()
+    .setColor(0x00c853)
+    .setTitle("✅ بدأ تقديم العصابة")
+    .setDescription(
+      `تم بدء تقديمك على عصابة **${gangName}**.\n\n` +
+      `أجب على الأسئلة بدقة في الخاص.\n` +
+      `أي إجابة غير واضحة قد تؤدي لرفض التقديم.`
+    )
+    .setFooter({ text: "Night City RP • Gangs" })
+    .setTimestamp();
+}
+
+function buildGangAcceptEmbed(gang) {
+  return new EmbedBuilder()
+    .setColor(0x00ff88)
+    .setTitle("🏴 تم قبولك في العصابة!")
+    .setDescription(
+      `مبروك، تم قبول تقديمك في عصابة **${gang.name}**.\n\n` +
+      (gang.roleId
+        ? "تم أيضًا منحك رول العصابة داخل الديسكورد."
+        : "تم قبولك داخل نظام العصابة.")
+    )
+    .setFooter({ text: "Night City RP • Gangs" })
+    .setTimestamp();
+}
+
+function buildGangRejectEmbed(gangName, reason) {
+  return new EmbedBuilder()
+    .setColor(0xff2d2d)
+    .setTitle("❌ تم رفض تقديم العصابة")
+    .setDescription(
+      `تم رفض تقديمك على عصابة **${gangName}**.\n\n` +
+      `**سبب الرفض:**\n${safeTrim(reason, 1500)}`
+    )
+    .setFooter({ text: "Night City RP • Gangs" })
+    .setTimestamp();
 }
 
 // ======================================================
@@ -934,9 +1094,9 @@ async function buildServicesPanelPayload() {
     .setTitle("🎫 الخدمات والتقديمات")
     .setDescription(
       "اختر من القائمة بالأسفل.\n\n" +
-        "• الدعم / الاستئناف / الشكوى / الاقتراح = يفتح تذكرة\n" +
-        "• تقديم صانع محتوى / تقديم إدارة = يرسل النموذج في الخاص\n" +
-        "• AI Help = حل أي مشكلة عامة في السيرفر أو البوت"
+      "• الدعم / الاستئناف / الشكوى / الاقتراح = يفتح تذكرة\n" +
+      "• تقديم صانع محتوى / تقديم إدارة = يرسل النموذج في الخاص\n" +
+      "• AI Help = حل أي مشكلة عامة في السيرفر أو البوت"
     )
     .setFooter({ text: `Night City RP • ${PANEL_MARKER_SERVICES}` });
 
@@ -974,7 +1134,7 @@ async function buildControlPanelPayload() {
   const embed = new EmbedBuilder()
     .setColor(0xf1c40f)
     .setTitle("🎛️ لوحة تحكم الأزرار")
-    .setDescription("من هنا تقدر تفتح وتقفل الوظائف وتضيف صانع محتوى يدويًا.")
+    .setDescription("من هنا تقدر تفتح وتقفل الوظائف وتدير صناع المحتوى والعصابات.")
     .setFooter({ text: `Night City RP • ${PANEL_MARKER_CONTROL}` })
     .setTimestamp();
 
@@ -997,13 +1157,25 @@ async function buildControlPanelPayload() {
   );
 
   const row4 = new ActionRowBuilder().addComponents(
+    featureButton("toggle_gangSystem", "نظام العصابات", settings.gangSystem),
     new ButtonBuilder()
       .setCustomId("manual_add_creator")
-      .setLabel("➕ إضافة / تعديل صانع محتوى يدويًا")
-      .setStyle(ButtonStyle.Primary)
+      .setLabel("➕ إضافة / تعديل صانع محتوى")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("create_gang")
+      .setLabel("🏴 إنشاء عصابة")
+      .setStyle(ButtonStyle.Success)
   );
 
-  return { embeds: [embed], components: [row1, row2, row3, row4] };
+  const row5 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("manage_gangs")
+      .setLabel("⚙️ إدارة العصابات")
+      .setStyle(ButtonStyle.Secondary)
+  );
+
+  return { embeds: [embed], components: [row1, row2, row3, row4, row5] };
 }
 
 async function buildRulesPanelPayload() {
@@ -1050,6 +1222,71 @@ async function buildHelpPanelPayload() {
   };
 }
 
+async function buildGangsPanelPayload() {
+  const embed = buildGangPanelEmbed();
+
+  if (!settings.gangSystem) {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("gang_system_disabled")
+        .setLabel("🚫 نظام العصابات مغلق")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true)
+    );
+
+    return { embeds: [embed], components: [row] };
+  }
+
+  if (!gangs.length) {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("gang_none")
+        .setLabel("لا توجد عصابات حاليًا")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true)
+    );
+    return { embeds: [embed], components: [row] };
+  }
+
+  const buttons = gangs.map((gang) =>
+    new ButtonBuilder()
+      .setCustomId(`apply_gang_${gang.id}`)
+      .setLabel(gang.open ? `🏴 ${safeTrim(gang.name, 70)}` : `🚫 ${safeTrim(gang.name, 70)}`)
+      .setStyle(gang.open ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(!gang.open)
+  );
+
+  return { embeds: [embed], components: chunkButtons(buttons, 5) };
+}
+
+async function updateGangsPanel(guild) {
+  const ch = await guild.channels.fetch(GANGS_PANEL_CHANNEL_ID).catch(() => null);
+  if (!ch?.isTextBased()) return;
+
+  let msg = null;
+
+  if (settings.gangsPanelMessageId) {
+    msg = await ch.messages.fetch(settings.gangsPanelMessageId).catch(() => null);
+  }
+
+  if (!msg) {
+    msg = await findMarkerMessage(ch, PANEL_MARKER_GANGS);
+  }
+
+  const payload = await buildGangsPanelPayload();
+
+  if (!msg) {
+    const sent = await ch.send(payload).catch(() => null);
+    if (sent) {
+      settings.gangsPanelMessageId = sent.id;
+      saveSettings();
+    }
+    return;
+  }
+
+  await msg.edit(payload).catch(() => {});
+}
+
 async function ensurePanels(guild) {
   const rpChannel = await guild.channels.fetch(RP_APPLY_PANEL_CHANNEL_ID).catch(() => null);
   if (rpChannel?.isTextBased()) {
@@ -1092,6 +1329,7 @@ async function ensurePanels(guild) {
   }
 
   await updateCreatorBoard(guild).catch(() => {});
+  await updateGangsPanel(guild).catch(() => {});
 }
 
 // ======================================================
@@ -1133,6 +1371,12 @@ client.once("clientReady", async () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
   sortCreators();
   saveCreators();
+  normalizeAllGangs();
+
+  activeApplications.clear();
+  for (const userId of Object.keys(sessions)) {
+    activeApplications.add(String(userId));
+  }
 
   for (const [, guild] of client.guilds.cache) {
     await ensurePanels(guild).catch(() => {});
@@ -1148,7 +1392,8 @@ client.on("messageDelete", async (message) => {
       !footer.includes(PANEL_MARKER_CONTROL) &&
       !footer.includes(PANEL_MARKER_CREATOR_BOARD) &&
       !footer.includes(PANEL_MARKER_RULES) &&
-      !footer.includes(PANEL_MARKER_HELP)
+      !footer.includes(PANEL_MARKER_HELP) &&
+      !footer.includes(PANEL_MARKER_GANGS)
     ) return;
 
     if (!message.guildId) return;
@@ -1161,11 +1406,11 @@ client.on("messageDelete", async (message) => {
 // ======================================================
 // APPLICATION FLOW
 // ======================================================
-async function startDmFlow(user, guild, type) {
+async function startDmFlow(user, guild, type, extra = {}) {
   const member = await guild.members.fetch(user.id).catch(() => null);
   if (!member) return { ok: false, reason: "member" };
 
-  if (activeApplications.has(user.id)) {
+  if (activeApplications.has(String(user.id))) {
     return { ok: false, reason: "active" };
   }
 
@@ -1178,21 +1423,40 @@ async function startDmFlow(user, guild, type) {
     }
   }
 
-  activeApplications.add(user.id);
+  if (type === "gang") {
+    if (!settings.gangSystem) return { ok: false, reason: "gangs_off" };
+    const gang = getGangById(extra.gangId);
+    if (!gang) return { ok: false, reason: "gang_not_found" };
+    if (!gang.open) return { ok: false, reason: "gang_closed" };
+    if (memberAlreadyInGang(gang, user.id)) return { ok: false, reason: "already_in_gang" };
+    if (isGangFull(gang)) return { ok: false, reason: "gang_full" };
+  }
+
+  activeApplications.add(String(user.id));
 
   const questions =
     type === "rp"
       ? RP_QUESTIONS
       : type === "creator"
       ? CREATOR_QUESTIONS
-      : ADMIN_QUESTIONS;
+      : type === "admin"
+      ? ADMIN_QUESTIONS
+      : extra.questions || GANG_QUESTIONS;
 
-  sessions.set(user.id, {
+  const sessionData = {
     type,
     step: 0,
     answers: {},
     guildId: guild.id,
-  });
+    ...(type === "gang"
+      ? {
+          gangId: String(extra.gangId),
+          questions,
+        }
+      : {}),
+  };
+
+  setSession(user.id, sessionData);
 
   try {
     const intro =
@@ -1200,10 +1464,18 @@ async function startDmFlow(user, guild, type) {
         ? "✅ بدأنا تقديم السيرفر في الخاص.\nأجب على الأسئلة بدقة.\n⚠️ قصة الشخصية يجب أن تكون 150 كلمة على الأقل."
         : type === "creator"
         ? "✅ بدأنا تقديم صانع المحتوى في الخاص.\nأجب على الأسئلة بدقة.\n⚠️ يفضل وضع الأرقام بشكل واضح."
-        : "✅ بدأنا تقديم الإدارة في الخاص.\nأجب على الأسئلة بدقة.";
+        : type === "admin"
+        ? "✅ بدأنا تقديم الإدارة في الخاص.\nأجب على الأسئلة بدقة."
+        : "";
 
-    await user.send(intro);
-    await user.send(questions[0].q);
+    if (type === "gang") {
+      const gang = getGangById(extra.gangId);
+      await user.send({ embeds: [buildGangAppliedDmEmbed(gang.name)] });
+      await user.send(questions[0].q);
+    } else {
+      await user.send(intro);
+      await user.send(questions[0].q);
+    }
 
     return { ok: true };
   } catch {
@@ -1284,6 +1556,28 @@ async function submitAdminToReview(guild, userId, answers) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId(`approve_admin_${userId}`).setLabel("✅ قبول").setStyle(ButtonStyle.Success),
     new ButtonBuilder().setCustomId(`reject_admin_${userId}`).setLabel("❌ رفض").setStyle(ButtonStyle.Danger)
+  );
+
+  await ch.send({ embeds: [embed], components: [row] }).catch(() => {});
+}
+
+async function submitGangToReview(guild, userId, gangId, answers) {
+  const gang = getGangById(gangId);
+  if (!gang) return;
+
+  const ch = await guild.channels.fetch(gang.reviewRoomId).catch(() => null);
+  if (!ch?.isTextBased()) return;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x111111)
+    .setTitle(`🏴 طلب انضمام جديد لعصابة ${gang.name}`)
+    .addFields(buildGangReviewFields(gang, answers))
+    .setFooter({ text: `user:${userId} | gang:${gang.id}` })
+    .setTimestamp();
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`approve_gang_${gang.id}_${userId}`).setLabel("✅ قبول").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`reject_gang_${gang.id}_${userId}`).setLabel("❌ رفض").setStyle(ButtonStyle.Danger)
   );
 
   await ch.send({ embeds: [embed], components: [row] }).catch(() => {});
@@ -1397,16 +1691,18 @@ async function createTicket(interaction, kind) {
 // ======================================================
 // MODALS
 // ======================================================
-async function openRejectModal(interaction, type, userId) {
+async function openRejectModal(interaction, type, userId, gangId = "") {
   const title =
     type === "rp"
       ? "سبب رفض تقديم السيرفر"
       : type === "creator"
       ? "سبب رفض صانع المحتوى"
-      : "سبب رفض الإدارة";
+      : type === "admin"
+      ? "سبب رفض الإدارة"
+      : "سبب رفض تقديم العصابة";
 
   const modal = new ModalBuilder()
-    .setCustomId(`modal_reject_${type}_${userId}`)
+    .setCustomId(type === "gang" ? `modal_reject_gang_${gangId}_${userId}` : `modal_reject_${type}_${userId}`)
     .setTitle(title);
 
   const input = new TextInputBuilder()
@@ -1565,6 +1861,111 @@ async function openAiProblemModal(interaction, lang) {
   await interaction.showModal(modal);
 }
 
+async function openCreateGangModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId("modal_create_gang")
+    .setTitle("إنشاء عصابة جديدة");
+
+  const name = new TextInputBuilder()
+    .setCustomId("name")
+    .setLabel("اسم العصابة")
+    .setPlaceholder("مثال: سلاطين الظل")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  const reviewRoomId = new TextInputBuilder()
+    .setCustomId("reviewRoomId")
+    .setLabel("ID روم المراجعة")
+    .setPlaceholder("اكتب آيدي روم المراجعة")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  const limit = new TextInputBuilder()
+    .setCustomId("limit")
+    .setLabel("Limit عدد أعضاء العصابة")
+    .setPlaceholder("مثال: 20")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+
+  const roleId = new TextInputBuilder()
+    .setCustomId("roleId")
+    .setLabel("Role ID للعصابة (اختياري)")
+    .setPlaceholder("سيتم إعطاء الرول عند القبول لو موجود")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+
+  const q1 = new TextInputBuilder()
+    .setCustomId("q1")
+    .setLabel("أول سؤال للتقديم (اختياري)")
+    .setPlaceholder("لو تركته فاضي هيستخدم الأسئلة الافتراضية")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(name),
+    new ActionRowBuilder().addComponents(reviewRoomId),
+    new ActionRowBuilder().addComponents(limit),
+    new ActionRowBuilder().addComponents(roleId),
+    new ActionRowBuilder().addComponents(q1)
+  );
+
+  await interaction.showModal(modal);
+}
+
+async function openGangEditModal(interaction, gangId) {
+  const gang = getGangById(gangId);
+  if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+
+  const modal = new ModalBuilder()
+    .setCustomId(`modal_edit_gang_${gang.id}`)
+    .setTitle(`تعديل عصابة ${safeTrim(gang.name, 30)}`);
+
+  const name = new TextInputBuilder()
+    .setCustomId("name")
+    .setLabel("اسم العصابة")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setValue(gang.name);
+
+  const reviewRoomId = new TextInputBuilder()
+    .setCustomId("reviewRoomId")
+    .setLabel("ID روم المراجعة")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setValue(gang.reviewRoomId);
+
+  const limit = new TextInputBuilder()
+    .setCustomId("limit")
+    .setLabel("Limit الأعضاء")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setValue(String(gang.limit || 0));
+
+  const roleId = new TextInputBuilder()
+    .setCustomId("roleId")
+    .setLabel("Role ID (اختياري)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setValue(gang.roleId || "");
+
+  const q1 = new TextInputBuilder()
+    .setCustomId("q1")
+    .setLabel("أول سؤال مخصص (اختياري)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setValue(gang.questions?.[0]?.q || "");
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(name),
+    new ActionRowBuilder().addComponents(reviewRoomId),
+    new ActionRowBuilder().addComponents(limit),
+    new ActionRowBuilder().addComponents(roleId),
+    new ActionRowBuilder().addComponents(q1)
+  );
+
+  await interaction.showModal(modal);
+}
+
 // ======================================================
 // INTERACTIONS
 // ======================================================
@@ -1589,12 +1990,8 @@ client.on("interactionCreate", async (interaction) => {
 
           const result = await startDmFlow(interaction.user, interaction.guild, "creator");
           if (!result.ok) {
-            if (result.reason === "active") {
-              return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
-            }
-            if (result.reason === "dm_closed") {
-              return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
-            }
+            if (result.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
+            if (result.reason === "dm_closed") return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
             return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
           }
 
@@ -1608,12 +2005,8 @@ client.on("interactionCreate", async (interaction) => {
 
           const result = await startDmFlow(interaction.user, interaction.guild, "admin");
           if (!result.ok) {
-            if (result.reason === "active") {
-              return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
-            }
-            if (result.reason === "dm_closed") {
-              return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
-            }
+            if (result.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
+            if (result.reason === "dm_closed") return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
             return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
           }
 
@@ -1622,6 +2015,52 @@ client.on("interactionCreate", async (interaction) => {
 
         return createTicket(interaction, type);
       }
+
+      if (interaction.customId === "gang_manage_select") {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+
+        const value = interaction.values[0];
+        if (value === "gang_none") {
+          return replyEphemeral(interaction, "⚠️ لا توجد عصابات.");
+        }
+
+        const gangId = value.replace("gang_manage_", "");
+        const gang = getGangById(gangId);
+        if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+
+        const embed = new EmbedBuilder()
+          .setColor(0x111111)
+          .setTitle(`⚙️ إدارة عصابة ${gang.name}`)
+          .setDescription(
+            `**الحالة:** ${gang.open ? "🟢 مفتوح" : "🔴 مغلق"}\n` +
+            `**الأعضاء:** ${currentGangCount(gang)}/${gang.limit || 0}\n` +
+            `**روم المراجعة:** <#${gang.reviewRoomId}>\n` +
+            `**الرول:** ${gang.roleId ? `<@&${gang.roleId}>` : "لا يوجد"}`
+          )
+          .setFooter({ text: `gang:${gang.id}` });
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`toggle_gang_${gang.id}`)
+            .setLabel(gang.open ? "🔒 قفل التقديم" : "🟢 فتح التقديم")
+            .setStyle(gang.open ? ButtonStyle.Danger : ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId(`edit_gang_${gang.id}`)
+            .setLabel("✏️ تعديل")
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId(`delete_gang_${gang.id}`)
+            .setLabel("🗑️ حذف")
+            .setStyle(ButtonStyle.Danger)
+        );
+
+        return interaction.reply({
+          embeds: [embed],
+          components: [row],
+          flags: MessageFlags.Ephemeral,
+        });
+      }
     }
 
     // ================= BUTTONS =================
@@ -1629,17 +2068,9 @@ client.on("interactionCreate", async (interaction) => {
       const { customId } = interaction;
 
       // ===== HELP CENTER =====
-      if (customId === "help_ar") {
-        return openAiProblemModal(interaction, "ar");
-      }
-
-      if (customId === "help_en") {
-        return openAiProblemModal(interaction, "en");
-      }
-
-      if (customId === "help_ai") {
-        return openAiProblemModal(interaction, "ar");
-      }
+      if (customId === "help_ar") return openAiProblemModal(interaction, "ar");
+      if (customId === "help_en") return openAiProblemModal(interaction, "en");
+      if (customId === "help_ai") return openAiProblemModal(interaction, "ar");
 
       // ===== CONTROL =====
       if (customId.startsWith("toggle_")) {
@@ -1658,6 +2089,7 @@ client.on("interactionCreate", async (interaction) => {
           toggle_adminApply: "adminApply",
           toggle_creatorApply: "creatorApply",
           toggle_creatorRegistry: "creatorRegistry",
+          toggle_gangSystem: "gangSystem",
         };
 
         const key = map[customId];
@@ -1677,21 +2109,109 @@ client.on("interactionCreate", async (interaction) => {
 
       if (customId === "manual_add_creator") {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
         return openManualCreatorModal(interaction);
+      }
+
+      if (customId === "create_gang") {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+        return openCreateGangModal(interaction);
+      }
+
+      if (customId === "manage_gangs") {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+
+        const row = new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId("gang_manage_select")
+            .setPlaceholder("اختر العصابة التي تريد إدارتها")
+            .addOptions(buildGangControlSelectOptions())
+        );
+
+        return interaction.reply({
+          content: "اختر العصابة:",
+          components: [row],
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      if (customId.startsWith("toggle_gang_")) {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+
+        const gangId = customId.replace("toggle_gang_", "");
+        const gang = getGangById(gangId);
+        if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+
+        gang.open = !gang.open;
+        saveGangs();
+
+        await updateGangsPanel(interaction.guild).catch(() => {});
+
+        return interaction.update({
+          embeds: [
+            new EmbedBuilder()
+              .setColor(0x111111)
+              .setTitle(`⚙️ إدارة عصابة ${gang.name}`)
+              .setDescription(
+                `**الحالة:** ${gang.open ? "🟢 مفتوح" : "🔴 مغلق"}\n` +
+                `**الأعضاء:** ${currentGangCount(gang)}/${gang.limit || 0}\n` +
+                `**روم المراجعة:** <#${gang.reviewRoomId}>\n` +
+                `**الرول:** ${gang.roleId ? `<@&${gang.roleId}>` : "لا يوجد"}`
+              )
+              .setFooter({ text: `gang:${gang.id}` })
+          ],
+          components: [
+            new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                .setCustomId(`toggle_gang_${gang.id}`)
+                .setLabel(gang.open ? "🔒 قفل التقديم" : "🟢 فتح التقديم")
+                .setStyle(gang.open ? ButtonStyle.Danger : ButtonStyle.Success),
+              new ButtonBuilder()
+                .setCustomId(`edit_gang_${gang.id}`)
+                .setLabel("✏️ تعديل")
+                .setStyle(ButtonStyle.Primary),
+              new ButtonBuilder()
+                .setCustomId(`delete_gang_${gang.id}`)
+                .setLabel("🗑️ حذف")
+                .setStyle(ButtonStyle.Danger)
+            )
+          ],
+        });
+      }
+
+      if (customId.startsWith("edit_gang_")) {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+        const gangId = customId.replace("edit_gang_", "");
+        return openGangEditModal(interaction, gangId);
+      }
+
+      if (customId.startsWith("delete_gang_")) {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+
+        const gangId = customId.replace("delete_gang_", "");
+        const gang = getGangById(gangId);
+        if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+
+        gangs = gangs.filter((g) => String(g.id) !== String(gangId));
+        saveGangs();
+        await updateGangsPanel(interaction.guild).catch(() => {});
+
+        return interaction.update({
+          content: `✅ تم حذف العصابة **${gang.name}**.`,
+          embeds: [],
+          components: [],
+        });
       }
 
       // ===== FEEDBACK SERVER =====
       if (customId === "open_feedback") {
-        if (!settings.feedback) {
-          return replyEphemeral(interaction, "⚠️ التقييم مغلق حاليًا.");
-        }
-
-        if (feedbackUsers.has(interaction.user.id)) {
-          return replyEphemeral(interaction, "❌ لقد قمت بتقييم السيرفر بالفعل.");
-        }
+        if (!settings.feedback) return replyEphemeral(interaction, "⚠️ التقييم مغلق حاليًا.");
+        if (feedbackUsers.has(interaction.user.id)) return replyEphemeral(interaction, "❌ لقد قمت بتقييم السيرفر بالفعل.");
 
         const row = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId("feedback_5").setLabel("⭐⭐⭐⭐⭐").setStyle(ButtonStyle.Success),
@@ -1716,49 +2236,60 @@ client.on("interactionCreate", async (interaction) => {
 
       // ===== SELF CREATOR ADD / UPDATE =====
       if (customId === "add_creator_link") {
-        if (!settings.creatorRegistry) {
-          return replyEphemeral(interaction, "⚠️ تسجيل صناع المحتوى مغلق حاليًا.");
-        }
+        if (!settings.creatorRegistry) return replyEphemeral(interaction, "⚠️ تسجيل صناع المحتوى مغلق حاليًا.");
         return openCreatorLinkModal(interaction);
       }
 
       // ===== RP APPLY =====
       if (customId === "start_rp_apply") {
-        if (!settings.rpApply) {
-          return replyEphemeral(interaction, "⚠️ التقديم على السيرفر مغلق حاليًا.");
-        }
+        if (!settings.rpApply) return replyEphemeral(interaction, "⚠️ التقديم على السيرفر مغلق حاليًا.");
 
         const result = await startDmFlow(interaction.user, interaction.guild, "rp");
         if (!result.ok) {
-          if (result.reason === "active") {
-            return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
-          }
-          if (result.reason === "final_reject") {
-            return replyEphemeral(interaction, "⛔ تم رفض طلبك نهائيًا ولا يمكنك التقديم مرة أخرى.");
-          }
-          if (result.reason === "already_accepted") {
-            return replyEphemeral(interaction, "✅ أنت مقبول بالفعل في السيرفر.");
-          }
-          if (result.reason === "dm_closed") {
-            return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
-          }
+          if (result.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
+          if (result.reason === "final_reject") return replyEphemeral(interaction, "⛔ تم رفض طلبك نهائيًا ولا يمكنك التقديم مرة أخرى.");
+          if (result.reason === "already_accepted") return replyEphemeral(interaction, "✅ أنت مقبول بالفعل في السيرفر.");
+          if (result.reason === "dm_closed") return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
           return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
         }
 
         return replyEphemeral(interaction, "✅ تم إرسال نموذج التقديم إلى الخاص (DM).");
       }
 
+      // ===== GANG APPLY =====
+      if (customId.startsWith("apply_gang_")) {
+        if (!settings.gangSystem) return replyEphemeral(interaction, "⚠️ نظام العصابات مغلق حاليًا.");
+
+        const gangId = customId.replace("apply_gang_", "");
+        const gang = getGangById(gangId);
+        if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+        if (!gang.open) return replyEphemeral(interaction, "⚠️ تقديم هذه العصابة مغلق حاليًا.");
+        if (isGangFull(gang)) return replyEphemeral(interaction, "⚠️ العصابة وصلت للحد الأقصى من الأعضاء.");
+
+        const result = await startDmFlow(interaction.user, interaction.guild, "gang", {
+          gangId: gang.id,
+          questions: gang.questions || GANG_QUESTIONS,
+        });
+
+        if (!result.ok) {
+          if (result.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
+          if (result.reason === "already_in_gang") return replyEphemeral(interaction, "✅ أنت بالفعل داخل هذه العصابة.");
+          if (result.reason === "gang_full") return replyEphemeral(interaction, "⚠️ العصابة ممتلئة.");
+          if (result.reason === "gang_closed") return replyEphemeral(interaction, "⚠️ التقديم على هذه العصابة مغلق.");
+          if (result.reason === "dm_closed") return replyEphemeral(interaction, "❌ افتح الخاص (DM) ثم أعد المحاولة.");
+          return replyEphemeral(interaction, "❌ تعذر بدء تقديم العصابة.");
+        }
+
+        return replyEphemeral(interaction, `✅ تم إرسال أسئلة التقديم على **${gang.name}** في الخاص.`);
+      }
+
       // ===== CLAIM TICKET =====
       if (customId === "ticket_claim") {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع استلام التذكرة.");
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع استلام التذكرة.");
 
         const info = parseTicketTopic(interaction.channel.topic);
-        if (info.claimedBy && info.claimedBy !== "none") {
-          return replyEphemeral(interaction, "⚠️ هذه التذكرة تم استلامها بالفعل.");
-        }
+        if (info.claimedBy && info.claimedBy !== "none") return replyEphemeral(interaction, "⚠️ هذه التذكرة تم استلامها بالفعل.");
 
         await interaction.channel.setTopic(ticketTopic(info.owner, info.type, interaction.user.id)).catch(() => {});
 
@@ -1776,19 +2307,14 @@ client.on("interactionCreate", async (interaction) => {
       // ===== CLOSE TICKET =====
       if (customId === "ticket_close_reason") {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع إغلاق التذكرة.");
-        }
-
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع إغلاق التذكرة.");
         return openTicketCloseReasonModal(interaction);
       }
 
       // ===== APPROVE/REJECT RP =====
       if (customId.startsWith("approve_rp_") || customId.startsWith("reject_rp_")) {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ هذا الإجراء مخصص لفريق الإدارة فقط.");
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص لفريق الإدارة فقط.");
 
         const userId = customId.replace("approve_rp_", "").replace("reject_rp_", "");
         const target = await interaction.guild.members.fetch(userId).catch(() => null);
@@ -1818,9 +2344,7 @@ client.on("interactionCreate", async (interaction) => {
       // ===== APPROVE/REJECT CREATOR =====
       if (customId.startsWith("approve_creator_") || customId.startsWith("reject_creator_")) {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ هذا الإجراء مخصص لفريق الإدارة فقط.");
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص لفريق الإدارة فقط.");
 
         const userId = customId.replace("approve_creator_", "").replace("reject_creator_", "");
         const target = await interaction.guild.members.fetch(userId).catch(() => null);
@@ -1873,9 +2397,7 @@ client.on("interactionCreate", async (interaction) => {
       // ===== APPROVE/REJECT ADMIN =====
       if (customId.startsWith("approve_admin_") || customId.startsWith("reject_admin_")) {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ هذا الإجراء مخصص لفريق الإدارة فقط.");
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص لفريق الإدارة فقط.");
 
         const userId = customId.replace("approve_admin_", "").replace("reject_admin_", "");
         const target = await interaction.guild.members.fetch(userId).catch(() => null);
@@ -1896,6 +2418,53 @@ client.on("interactionCreate", async (interaction) => {
         }
 
         return openRejectModal(interaction, "admin", userId);
+      }
+
+      // ===== APPROVE/REJECT GANG =====
+      if (customId.startsWith("approve_gang_") || customId.startsWith("reject_gang_")) {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص لفريق الإدارة فقط.");
+
+        const parts = customId.split("_");
+        const gangId = parts[2];
+        const userId = parts[3];
+
+        const gang = getGangById(gangId);
+        if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+
+        const target = await interaction.guild.members.fetch(userId).catch(() => null);
+        if (!target) return replyEphemeral(interaction, "❌ تعذر العثور على العضو.");
+
+        if (customId.startsWith("approve_gang_")) {
+          if (memberAlreadyInGang(gang, userId)) {
+            return replyEphemeral(interaction, "⚠️ العضو موجود بالفعل داخل العصابة.");
+          }
+
+          if (isGangFull(gang)) {
+            return replyEphemeral(interaction, "⚠️ لا يمكن القبول، العصابة ممتلئة.");
+          }
+
+          addGangMember(gang.id, userId);
+
+          if (gang.roleId) {
+            await target.roles.add(gang.roleId).catch(() => {});
+          }
+
+          try {
+            await target.send({ embeds: [buildGangAcceptEmbed(gang)] });
+          } catch {}
+
+          await updateGangsPanel(interaction.guild).catch(() => {});
+
+          const rows = disableMessageComponents(interaction.message);
+          await interaction.update({
+            content: `✅ تم قبول تقديم ${target} في عصابة **${gang.name}** بواسطة ${interaction.user}.`,
+            components: rows,
+          }).catch(() => {});
+          return;
+        }
+
+        return openRejectModal(interaction, "gang", userId, gangId);
       }
 
       // ===== TICKET RATE BUTTONS =====
@@ -1931,11 +2500,135 @@ client.on("interactionCreate", async (interaction) => {
         return;
       }
 
+      // ===== CREATE GANG =====
+      if (id === "modal_create_gang") {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+
+        const name = safeTrim(interaction.fields.getTextInputValue("name"), 80);
+        const reviewRoomId = interaction.fields.getTextInputValue("reviewRoomId").trim();
+        const limit = Number(interaction.fields.getTextInputValue("limit"));
+        const roleId = interaction.fields.getTextInputValue("roleId").trim();
+        const q1 = interaction.fields.getTextInputValue("q1").trim();
+
+        if (!name) return replyEphemeral(interaction, "❌ اسم العصابة مطلوب.");
+        if (!reviewRoomId) return replyEphemeral(interaction, "❌ روم المراجعة مطلوب.");
+        if (!Number.isFinite(limit) || limit < 1) return replyEphemeral(interaction, "❌ الـ limit لازم يكون رقم أكبر من 0.");
+
+        const reviewChannel = await interaction.guild.channels.fetch(reviewRoomId).catch(() => null);
+        if (!reviewChannel?.isTextBased()) {
+          return replyEphemeral(interaction, "❌ روم المراجعة غير صحيح.");
+        }
+
+        if (roleId) {
+          const roleExists = interaction.guild.roles.cache.get(roleId);
+          if (!roleExists) {
+            return replyEphemeral(interaction, "❌ Role ID غير صحيح.");
+          }
+        }
+
+        const questions = q1
+          ? [{ key: "custom1", q: q1 }, ...GANG_QUESTIONS.slice(1)]
+          : GANG_QUESTIONS;
+
+        gangs.push(
+          normalizeGang({
+            id: Date.now().toString(),
+            name,
+            reviewRoomId,
+            roleId,
+            limit,
+            open: true,
+            members: [],
+            questions,
+            createdAt: new Date().toISOString(),
+          })
+        );
+
+        saveGangs();
+        await updateGangsPanel(interaction.guild).catch(() => {});
+
+        await interaction.reply({
+          content: `✅ تم إنشاء العصابة **${name}** بنجاح.`,
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+        return;
+      }
+
+      // ===== EDIT GANG =====
+      if (id.startsWith("modal_edit_gang_")) {
+        const member = interaction.member;
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+
+        const gangId = id.replace("modal_edit_gang_", "");
+        const gang = getGangById(gangId);
+        if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+
+        const name = safeTrim(interaction.fields.getTextInputValue("name"), 80);
+        const reviewRoomId = interaction.fields.getTextInputValue("reviewRoomId").trim();
+        const limit = Number(interaction.fields.getTextInputValue("limit"));
+        const roleId = interaction.fields.getTextInputValue("roleId").trim();
+        const q1 = interaction.fields.getTextInputValue("q1").trim();
+
+        if (!name) return replyEphemeral(interaction, "❌ اسم العصابة مطلوب.");
+        if (!reviewRoomId) return replyEphemeral(interaction, "❌ روم المراجعة مطلوب.");
+        if (!Number.isFinite(limit) || limit < 1) return replyEphemeral(interaction, "❌ الـ limit لازم يكون رقم أكبر من 0.");
+
+        const reviewChannel = await interaction.guild.channels.fetch(reviewRoomId).catch(() => null);
+        if (!reviewChannel?.isTextBased()) return replyEphemeral(interaction, "❌ روم المراجعة غير صحيح.");
+
+        if (roleId) {
+          const roleExists = interaction.guild.roles.cache.get(roleId);
+          if (!roleExists) return replyEphemeral(interaction, "❌ Role ID غير صحيح.");
+        }
+
+        gang.name = name;
+        gang.reviewRoomId = reviewRoomId;
+        gang.limit = limit;
+        gang.roleId = roleId;
+        if (q1) {
+          gang.questions = [{ key: "custom1", q: q1 }, ...GANG_QUESTIONS.slice(1)];
+        }
+
+        saveGangs();
+        await updateGangsPanel(interaction.guild).catch(() => {});
+
+        await interaction.reply({
+          content: `✅ تم تعديل العصابة **${gang.name}**.`,
+          flags: MessageFlags.Ephemeral,
+        }).catch(() => {});
+        return;
+      }
+
+      // ===== REJECT MODALS =====
       if (id.startsWith("modal_reject_")) {
+        const reason = interaction.fields.getTextInputValue("reason");
+
+        // gang reject
+        if (id.startsWith("modal_reject_gang_")) {
+          const parts = id.split("_");
+          const gangId = parts[3];
+          const userId = parts[4];
+
+          const gang = getGangById(gangId);
+          const target = await interaction.guild.members.fetch(userId).catch(() => null);
+
+          if (target && gang) {
+            try {
+              await target.send({ embeds: [buildGangRejectEmbed(gang.name, reason)] });
+            } catch {}
+          }
+
+          await interaction.reply({
+            content: `❌ تم رفض تقديم العصابة للعضو <@${userId}>.`,
+            flags: MessageFlags.Ephemeral,
+          }).catch(() => {});
+          return;
+        }
+
         const parts = id.split("_");
         const type = parts[2];
         const userId = parts.slice(3).join("_");
-        const reason = interaction.fields.getTextInputValue("reason");
 
         const target = await interaction.guild.members.fetch(userId).catch(() => null);
 
@@ -2029,9 +2722,7 @@ client.on("interactionCreate", async (interaction) => {
       // ===== CLOSE TICKET MODAL =====
       if (id.startsWith("modal_ticket_close_")) {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع إغلاق التذكرة.");
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع إغلاق التذكرة.");
 
         const reason = interaction.fields.getTextInputValue("reason");
         const channel = interaction.channel;
@@ -2127,9 +2818,7 @@ client.on("interactionCreate", async (interaction) => {
 
       // ===== SELF CREATOR LINK REGISTRY MODAL =====
       if (id === "modal_add_creator_link") {
-        if (!settings.creatorRegistry) {
-          return replyEphemeral(interaction, "⚠️ تسجيل صناع المحتوى مغلق حاليًا.");
-        }
+        if (!settings.creatorRegistry) return replyEphemeral(interaction, "⚠️ تسجيل صناع المحتوى مغلق حاليًا.");
 
         const link = interaction.fields.getTextInputValue("link");
         const followers = interaction.fields.getTextInputValue("followers");
@@ -2187,9 +2876,7 @@ client.on("interactionCreate", async (interaction) => {
       // ===== MANUAL ADD / UPDATE CREATOR =====
       if (id === "modal_manual_add_creator") {
         const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
-        }
+        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
 
         const userId = interaction.fields.getTextInputValue("userId").trim();
         const name = interaction.fields.getTextInputValue("name");
@@ -2239,7 +2926,7 @@ client.on("messageCreate", async (msg) => {
     if (msg.author.bot) return;
     if (msg.guild) return;
 
-    const session = sessions.get(msg.author.id);
+    const session = getSession(msg.author.id);
     if (!session) return;
 
     const guild = await client.guilds.fetch(session.guildId).catch(() => null);
@@ -2253,7 +2940,9 @@ client.on("messageCreate", async (msg) => {
         ? RP_QUESTIONS
         : session.type === "creator"
         ? CREATOR_QUESTIONS
-        : ADMIN_QUESTIONS;
+        : session.type === "admin"
+        ? ADMIN_QUESTIONS
+        : session.questions || GANG_QUESTIONS;
 
     const current = questions[session.step];
     if (!current) {
@@ -2272,10 +2961,20 @@ client.on("messageCreate", async (msg) => {
       }
 
       if (ageNumber < 16) {
-        await msg.author.send(
-          "❌ تم رفض التقديم.\n\nسبب الرفض:\n• السن أقل من الحد المطلوب (16)."
-        );
+        await msg.author.send("❌ تم رفض التقديم.\n\nسبب الرفض:\n• السن أقل من الحد المطلوب (16).");
+        endSession(msg.author.id);
+        return;
+      }
+    }
 
+    if (session.type === "gang" && current.key === "realAge") {
+      const ageNumber = parseInt(answer.match(/\d+/)?.[0]);
+      if (!ageNumber) {
+        await msg.author.send("❌ يرجى كتابة العمر بشكل واضح.");
+        return;
+      }
+      if (ageNumber < 16) {
+        await msg.author.send("❌ تم رفض تقديم العصابة.\n\nسبب الرفض:\n• السن أقل من الحد المطلوب.");
         endSession(msg.author.id);
         return;
       }
@@ -2311,46 +3010,33 @@ client.on("messageCreate", async (msg) => {
     if (session.type === "rp" && current.key === "story") {
       let rejectReasons = [];
 
-      if (wordCount(answer) < 150) {
-        rejectReasons.push("القصة أقل من 150 كلمة");
-      }
+      if (wordCount(answer) < 150) rejectReasons.push("القصة أقل من 150 كلمة");
 
-      const aiPatterns = [
-        "في عالم",
-        "تدور أحداث",
-        "منذ صغره",
-        "كبر وهو",
-        "في أحد الأيام",
-        "لطالما كان",
-        "بدأت القصة",
-        "كان يعيش",
-        "في مدينة",
-      ];
-
+      const aiPatterns = ["في عالم", "تدور أحداث", "منذ صغره", "كبر وهو", "في أحد الأيام", "لطالما كان", "بدأت القصة", "كان يعيش", "في مدينة"];
       let aiScore = 0;
       for (const pattern of aiPatterns) {
-        if (answer.includes(pattern)) {
-          aiScore++;
-        }
+        if (answer.includes(pattern)) aiScore++;
       }
 
-      if (aiScore >= 4) {
-        rejectReasons.push("القصة تبدو مولدة بمساعدة الذكاء الاصطناعي");
-      }
+      if (aiScore >= 4) rejectReasons.push("القصة تبدو مولدة بمساعدة الذكاء الاصطناعي");
 
       if (rejectReasons.length > 0) {
-        await msg.author.send(
-          "❌ تم رفض التقديم.\n\nسبب الرفض:\n• " + rejectReasons.join("\n• ")
-        );
-
+        await msg.author.send("❌ تم رفض التقديم.\n\nسبب الرفض:\n• " + rejectReasons.join("\n• "));
         endSession(msg.author.id);
+        return;
+      }
+    }
+
+    if (session.type === "gang" && current.key === "story") {
+      if (wordCount(answer) < 8) {
+        await msg.author.send("❌ النبذة قصيرة جدًا. اكتب نبذة أوضح عن شخصيتك.");
         return;
       }
     }
 
     session.answers[current.key] = answer;
     session.step += 1;
-    sessions.set(msg.author.id, session);
+    setSession(msg.author.id, session);
 
     if (session.step < questions.length) {
       await msg.author.send(questions[session.step].q);
@@ -2368,8 +3054,23 @@ client.on("messageCreate", async (msg) => {
         session.answers.channelName = parsed.name;
       }
       await submitCreatorToReview(guild, msg.author.id, session.answers);
-    } else {
+    } else if (session.type === "admin") {
       await submitAdminToReview(guild, msg.author.id, session.answers);
+    } else if (session.type === "gang") {
+      const gang = getGangById(session.gangId);
+      if (!gang) {
+        await msg.author.send("❌ العصابة لم تعد موجودة.");
+        endSession(msg.author.id);
+        return;
+      }
+
+      if (isGangFull(gang)) {
+        await msg.author.send("⚠️ للأسف العصابة أصبحت ممتلئة قبل إنهاء تقديمك.");
+        endSession(msg.author.id);
+        return;
+      }
+
+      await submitGangToReview(guild, msg.author.id, session.gangId, session.answers);
     }
 
     endSession(msg.author.id);
