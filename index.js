@@ -2903,39 +2903,29 @@ client.on("interactionCreate", async (interaction) => {
         const userId = interaction.fields.getTextInputValue("userId");
 
         const gang = getGangByName(gangName);
-        if (!gang) return interaction.reply({ content: "❌ العصابة غير موجودة", flags: MessageFlags.Ephemer
-                if (id === "modal_remove_gang_member") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ للإدارة فقط.");
-        }
 
-        const gangName = interaction.fields.getTextInputValue("gang");
-        const userId = interaction.fields.getTextInputValue("userId");
+if (!gang) {
+  return interaction.reply({
+    content: "❌ العصابة غير موجودة",
+    flags: MessageFlags.Ephemeral,
+  });
+}
 
-        const gang = getGangByName(gangName);
-        if (!gang) {
-          return interaction.reply({
-            content: "❌ العصابة غير موجودة",
-            flags: MessageFlags.Ephemeral,
-          });
-        }
+const removed = removeGangMember(gang.id, userId);
 
-        const removed = removeGangMember(gang.id, userId);
-        if (!removed) {
-          return interaction.reply({
-            content: "❌ فشل حذف العضو من العصابة.",
-            flags: MessageFlags.Ephemeral,
-          });
-        }
+if (!removed) {
+  return interaction.reply({
+    content: "❌ فشل حذف العضو من العصابة",
+    flags: MessageFlags.Ephemeral,
+  });
+}
 
-        await updateGangsPanel(interaction.guild).catch(() => {});
+await updateGangsPanel(interaction.guild).catch(() => {});
 
-        return interaction.reply({
-          content: `✅ تم طرد اللاعب <@${userId}> من عصابة **${gang.name}**`,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
+return interaction.reply({
+  content: `✅ تم طرد اللاعب <@${userId}> من عصابة **${gang.name}**`,
+  flags: MessageFlags.Ephemeral,
+});
 
       // ===== ACCEPT GANG MODAL =====
       if (id.startsWith("modal_accept_gang_")) {
