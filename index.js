@@ -13,17 +13,17 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  MessageFlags,
   StringSelectMenuBuilder,
+  MessageFlags,
   AttachmentBuilder,
 } = require("discord.js");
 
 // ======================================================
 // CONFIG
 // ======================================================
-const TOKEN = process.env.TOKEN;
+const TOKEN = process.env.TOKEN || "";
 
-// Optional APIs
+// Optional APIs placeholders
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "";
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID || "";
 const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET || "";
@@ -45,26 +45,12 @@ const WELCOME_CHANNEL_ID = "1465609782680621254";
 const RULES_CHANNEL_ID = "1465786939755200687";
 const FEEDBACK_CHANNEL_ID = "1480098551248715896";
 const CONTROL_PANEL_CHANNEL_ID = "1480098674578034698";
-
-// روم المساعدات / المشاكل / AI
 const HELP_CHANNEL_ID = "1492307966605394051";
-
-// روم بانل تقديم السيرفر فقط
 const RP_APPLY_PANEL_CHANNEL_ID = "1465803291714785481";
-
-// روم الخدمات / التذاكر / التقديمات المركزية
 const SERVICES_PANEL_CHANNEL_ID = "1465757986684403828";
-
-// روم عرض صناع المحتوى
 const CREATOR_BOARD_CHANNEL_ID = "1490733587363004566";
-
-// بانل العصابات
 const GANGS_PANEL_CHANNEL_ID = "1494093622281244683";
-
-// كاتيجوري رومات مراجعة العصابات
 const GANGS_REVIEW_CATEGORY_ID = "1494117375736287242";
-
-// لو حبيت تستخدمها بعدين لإعلانات اللايف
 const LIVE_CHANNEL_ID = "1490733602663563275";
 
 // ================= REVIEW CHANNEL IDS =================
@@ -96,23 +82,24 @@ const RP_REJECT1_ROLE_ID = "1477568923208519681";
 const RP_REJECT2_ROLE_ID = "1477569051185119332";
 
 // ================= PANEL MARKERS =================
-const PANEL_MARKER_RP = "PANEL_RP_APPLY_v12";
-const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v12";
-const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v12";
-const PANEL_MARKER_CREATOR_BOARD = "PANEL_CREATOR_BOARD_v5";
-const PANEL_MARKER_RULES = "PANEL_RULES_v1";
-const PANEL_MARKER_HELP = "PANEL_HELP_v1";
-const PANEL_MARKER_GANGS = "PANEL_GANGS_v2";
+const PANEL_MARKER_RP = "PANEL_RP_APPLY_v20";
+const PANEL_MARKER_SERVICES = "PANEL_SERVICES_v20";
+const PANEL_MARKER_CONTROL = "PANEL_CONTROL_v20";
+const PANEL_MARKER_CREATOR_BOARD = "PANEL_CREATOR_BOARD_v20";
+const PANEL_MARKER_RULES = "PANEL_RULES_v20";
+const PANEL_MARKER_HELP = "PANEL_HELP_v20";
+const PANEL_MARKER_GANGS = "PANEL_GANGS_v20";
 
 // ======================================================
 // FILES
 // ======================================================
-const SETTINGS_FILE = path.join(__dirname, "bot_settings.json");
-const FEEDBACK_FILE = path.join(__dirname, "feedback_users.json");
-const TICKET_RATINGS_FILE = path.join(__dirname, "ticket_ratings.json");
-const CREATORS_FILE = path.join(__dirname, "creators.json");
-const GANGS_FILE = path.join(__dirname, "gangs.json");
-const SESSIONS_FILE = path.join(__dirname, "sessions.json");
+const DATA_DIR = __dirname;
+const SETTINGS_FILE = path.join(DATA_DIR, "bot_settings.json");
+const FEEDBACK_FILE = path.join(DATA_DIR, "feedback_users.json");
+const TICKET_RATINGS_FILE = path.join(DATA_DIR, "ticket_ratings.json");
+const CREATORS_FILE = path.join(DATA_DIR, "creators.json");
+const GANGS_FILE = path.join(DATA_DIR, "gangs.json");
+const SESSIONS_FILE = path.join(DATA_DIR, "sessions.json");
 
 // ======================================================
 // QUESTIONS
@@ -193,7 +180,7 @@ const client = new Client({
 });
 
 // ======================================================
-// STATE
+// DEFAULTS / STORAGE
 // ======================================================
 const defaultSettings = {
   rpApply: true,
@@ -207,15 +194,13 @@ const defaultSettings = {
   creatorRegistry: true,
   gangSystem: true,
   creatorBoardMessageId: null,
-  rulesMessageId: null,
-  helpMessageId: null,
   gangsPanelMessageId: null,
 };
 
 function readJsonFile(file, fallback) {
   try {
     if (!fs.existsSync(file)) {
-      fs.writeFileSync(file, JSON.stringify(fallback, null, 2));
+      fs.writeFileSync(file, JSON.stringify(fallback, null, 2), "utf8");
       return fallback;
     }
     const raw = fs.readFileSync(file, "utf8");
@@ -227,15 +212,13 @@ function readJsonFile(file, fallback) {
 
 function writeJsonFile(file, data) {
   try {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
-  } catch {}
+    fs.writeFileSync(file, JSON.stringify(data, null, 2), "utf8");
+  } catch (err) {
+    console.log("writeJsonFile error:", err?.message || err);
+  }
 }
 
-function loadSettings() {
-  return { ...defaultSettings, ...readJsonFile(SETTINGS_FILE, defaultSettings) };
-}
-
-let settings = loadSettings();
+let settings = { ...defaultSettings, ...readJsonFile(SETTINGS_FILE, defaultSettings) };
 const feedbackUsers = new Set(readJsonFile(FEEDBACK_FILE, []));
 const ticketRatings = readJsonFile(TICKET_RATINGS_FILE, {});
 let creators = readJsonFile(CREATORS_FILE, []);
@@ -278,7 +261,7 @@ function safeTrim(v, max = 1024) {
   if (!v) return "";
   const s = String(v).trim();
   if (!s) return "";
-  return s.length > max ? s.slice(0, max - 3) + "..." : s;
+  return s.length > max ? `${s.slice(0, max - 3)}...` : s;
 }
 
 function slugifyText(input, max = 60) {
@@ -289,14 +272,11 @@ function slugifyText(input, max = 60) {
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, max) || "gang";
+    .slice(0, max) || "item";
 }
 
 function wordCount(text) {
-  return String(text || "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
+  return String(text || "").trim().split(/\s+/).filter(Boolean).length;
 }
 
 function tooShortAnswer(text) {
@@ -321,44 +301,29 @@ function endSession(userId) {
   activeApplications.delete(String(userId));
 }
 
-function replyEphemeral(interaction, content) {
-  return interaction.reply({
-    content,
-    flags: MessageFlags.Ephemeral,
-  });
+async function replyEphemeral(interaction, content) {
+  if (interaction.replied || interaction.deferred) {
+    return interaction.followUp({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
+  }
+  return interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
 }
 
-async function findMarkerMessage(ch, marker) {
-  const msgs = await ch.messages.fetch({ limit: 50 }).catch(() => null);
+async function findMarkerMessage(channel, marker) {
+  const msgs = await channel.messages.fetch({ limit: 50 }).catch(() => null);
   if (!msgs) return null;
-  for (const [, m] of msgs) {
-    const e = m.embeds?.[0];
-    const footer = e?.footer?.text || "";
-    if (footer.includes(marker)) return m;
+  for (const [, msg] of msgs) {
+    const footer = msg.embeds?.[0]?.footer?.text || "";
+    if (footer.includes(marker)) return msg;
   }
   return null;
 }
 
 function reviewFieldsFromQuestions(questions, answers) {
   return questions.map((q) => ({
-    name: q.q.slice(0, 256),
+    name: safeTrim(q.q, 256),
     value: safeTrim(answers[q.key], 1024) || "-",
     inline: false,
   }));
-}
-
-function disableMessageComponents(message) {
-  if (!message?.components?.length) return [];
-  return message.components.map((row) => {
-    const newRow = ActionRowBuilder.from(row);
-    newRow.components = newRow.components.map((c) => {
-      if ("data" in c && c.data?.style !== ButtonStyle.Link) {
-        return ButtonBuilder.from(c).setDisabled(true);
-      }
-      return ButtonBuilder.from(c).setDisabled(true);
-    });
-    return newRow;
-  });
 }
 
 function featureButton(customId, label, enabled) {
@@ -410,10 +375,8 @@ function parseTicketTopic(topic) {
   return { owner, type, claimedBy };
 }
 
-async function getTicketOwnerMember(channel) {
-  const info = parseTicketTopic(channel.topic);
-  if (!info.owner) return null;
-  return channel.guild.members.fetch(info.owner).catch(() => null);
+function formatNum(n) {
+  return Number(n || 0).toLocaleString("en-US");
 }
 
 function toNumberLoose(input) {
@@ -425,23 +388,25 @@ function toNumberLoose(input) {
   return Number.isFinite(num) ? num : 0;
 }
 
-function formatNum(n) {
-  const num = Number(n || 0);
-  return num.toLocaleString("en-US");
+function disableMessageRows(message) {
+  if (!message?.components?.length) return [];
+  return message.components.map((row) => {
+    const newRow = ActionRowBuilder.from(row);
+    newRow.components = newRow.components.map((c) => ButtonBuilder.from(c).setDisabled(true));
+    return newRow;
+  });
 }
 
 async function createTranscriptFile(channel) {
   let allMessages = [];
-  let lastId;
+  let lastId = undefined;
 
   while (true) {
-    const fetched = await channel.messages.fetch({
-      limit: 100,
-      ...(lastId ? { before: lastId } : {}),
-    }).catch(() => null);
+    const fetched = await channel.messages
+      .fetch({ limit: 100, ...(lastId ? { before: lastId } : {}) })
+      .catch(() => null);
 
-    if (!fetched || fetched.size === 0) break;
-
+    if (!fetched || !fetched.size) break;
     allMessages.push(...[...fetched.values()]);
     lastId = fetched.last().id;
 
@@ -449,17 +414,17 @@ async function createTranscriptFile(channel) {
     if (allMessages.length >= 500) break;
   }
 
-  allMessages = allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+  allMessages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
   let content = "";
-  content += `Night City RP - Ticket Transcript\n`;
+  content += `${SERVER_NAME} - Ticket Transcript\n`;
   content += `Channel: ${channel.name}\n`;
   content += `Date: ${new Date().toLocaleString("en-GB")}\n`;
-  content += `====================================================\n\n`;
+  content += "====================================================\n\n";
 
   for (const m of allMessages) {
     const time = new Date(m.createdTimestamp).toLocaleString("en-GB");
-    const author = `${m.author?.tag || "Unknown User"}`;
+    const author = m.author?.tag || "Unknown User";
     const body = m.content?.trim() || "[No Text]";
     content += `[${time}] ${author}: ${body}\n`;
 
@@ -471,18 +436,15 @@ async function createTranscriptFile(channel) {
 
     if (m.embeds?.length) {
       for (const emb of m.embeds) {
-        const parts = [
-          emb.title ? `Title: ${emb.title}` : "",
-          emb.description ? `Description: ${emb.description}` : "",
-        ].filter(Boolean);
-        if (parts.length) content += `  Embed -> ${parts.join(" | ")}\n`;
+        if (emb.title) content += `  Embed Title: ${emb.title}\n`;
+        if (emb.description) content += `  Embed Desc: ${emb.description}\n`;
       }
     }
 
-    content += `\n`;
+    content += "\n";
   }
 
-  const filePath = path.join(__dirname, `transcript-${channel.id}.txt`);
+  const filePath = path.join(DATA_DIR, `transcript-${channel.id}.txt`);
   fs.writeFileSync(filePath, content, "utf8");
   return filePath;
 }
@@ -500,8 +462,8 @@ function normalizeGang(raw) {
     open: raw.open !== false,
     members: Array.isArray(raw.members) ? raw.members.map(String) : [],
     questions: Array.isArray(raw.questions) && raw.questions.length ? raw.questions : GANG_QUESTIONS,
+    inviteLink: safeTrim(raw.inviteLink || "", 1000),
     createdAt: raw.createdAt || new Date().toISOString(),
-    externalGuildId: raw.externalGuildId ? String(raw.externalGuildId) : "",
   };
 }
 
@@ -512,10 +474,6 @@ function normalizeAllGangs() {
 
 function getGangById(gangId) {
   return gangs.find((g) => String(g.id) === String(gangId)) || null;
-}
-
-function getGangByName(name) {
-  return gangs.find((g) => String(g.name).toLowerCase() === String(name).toLowerCase()) || null;
 }
 
 function currentGangCount(gang) {
@@ -573,7 +531,14 @@ function buildGangReviewFields(gang, answers) {
 
 function buildGangControlSelectOptions() {
   if (!gangs.length) {
-    return [{ label: "لا توجد عصابات", value: "gang_none", description: "أنشئ عصابة أولًا", emoji: "🚫" }];
+    return [
+      {
+        label: "لا توجد عصابات",
+        value: "gang_none",
+        description: "أنشئ عصابة أولًا",
+        emoji: "🚫",
+      },
+    ];
   }
 
   return gangs.slice(0, 25).map((gang) => ({
@@ -588,13 +553,11 @@ async function createGangReviewChannel(guild, gangName) {
   const category = await guild.channels.fetch(GANGS_REVIEW_CATEGORY_ID).catch(() => null);
 
   if (!category || category.type !== ChannelType.GuildCategory) {
-    throw new Error("GANGS_REVIEW_CATEGORY_ID is invalid or not a category");
+    throw new Error("GANGS_REVIEW_CATEGORY_ID invalid");
   }
 
-  const channelName = `gang-${slugifyText(gangName, 40)}`;
-
-  const channel = await guild.channels.create({
-    name: channelName,
+  return guild.channels.create({
+    name: `gang-${slugifyText(gangName, 40)}`,
     type: ChannelType.GuildText,
     parent: category.id,
     permissionOverwrites: [
@@ -615,119 +578,23 @@ async function createGangReviewChannel(guild, gangName) {
       })),
     ],
   });
-
-  return channel;
 }
 
 async function tryDeleteGangReviewChannel(guild, channelId) {
   if (!channelId) return;
   const channel = await guild.channels.fetch(channelId).catch(() => null);
-  if (channel) {
-    await channel.delete().catch(() => {});
-  }
+  if (channel) await channel.delete().catch(() => {});
 }
 
 async function tryRenameGangReviewChannel(guild, channelId, newGangName) {
   if (!channelId) return;
   const channel = await guild.channels.fetch(channelId).catch(() => null);
   if (!channel) return;
-  const nextName = `gang-${slugifyText(newGangName, 40)}`;
-  await channel.setName(nextName).catch(() => {});
-}
-
-function buildCustomGangQuestions(firstQuestion) {
-  const base = JSON.parse(JSON.stringify(GANG_QUESTIONS));
-  if (safeTrim(firstQuestion)) {
-    base[0] = { key: "customQ1", q: safeTrim(firstQuestion, 200) };
-  }
-  return base;
+  await channel.setName(`gang-${slugifyText(newGangName, 40)}`).catch(() => {});
 }
 
 // ======================================================
-// AI HELP SYSTEM
-// ======================================================
-function getAiReply(problem, lang = "ar") {
-  const text = String(problem || "").toLowerCase();
-
-  const replyAr = () => {
-    if (text.includes("ticket") || text.includes("تذكر") || text.includes("التذكره") || text.includes("التذكرة")) {
-      return "غالبًا المشكلة من صلاحيات البوت أو كاتيجوري التذاكر أو ترتيب الرتب. تأكد أن البوت لديه Manage Channels و View Channel وأن الـ Category ID صحيح.";
-    }
-    if (text.includes("railway")) {
-      return "مشكلة Railway غالبًا من عدم عمل deploy جديد أو sleep mode. اعمل Redeploy وتأكد أن المشروع يأخذ آخر نسخة من GitHub.";
-    }
-    if (text.includes("offline") || text.includes("bot off") || text.includes("البوت واقف") || text.includes("البوت اوف")) {
-      return "تأكد أن TOKEN موجود في Railway وأن البوت Logged in في اللوجز. راجع أيضًا وجود أي خطأ أثناء التشغيل.";
-    }
-    if (text.includes("rank") || text.includes("role") || text.includes("رتب") || text.includes("رول")) {
-      return "تأكد أن رتبة البوت أعلى من الرتب التي يديرها أو يمنحها، وإلا لن يستطيع إعطاء الرتب أو التحكم في القنوات.";
-    }
-    if (text.includes("dm") || text.includes("خاص")) {
-      return "تأكد أن الخاص مفتوح من إعدادات ديسكورد، لأن بعض النماذج والتقديمات تعتمد على الرسائل الخاصة.";
-    }
-    if (text.includes("review") || text.includes("مراجعة")) {
-      return "راجع IDs قنوات المراجعة وتأكد أن البوت لديه صلاحية View Channel و Send Messages داخلها.";
-    }
-    if (text.includes("rules") || text.includes("قوانين")) {
-      return "تأكد من روابط القوانين في الإعدادات أعلى الكود، وتأكد أن صورة اللوجو والرابطين صحيحين ومتاحين.";
-    }
-    return "راجع Logs في Railway أولًا، ثم تأكد من: الصلاحيات، IDs، ترتيب الرتب، وروابط القوانين. لو الخطأ مستمر فالمشكلة غالبًا من الإعدادات وليس من تشغيل البوت نفسه.";
-  };
-
-  const replyEn = () => {
-    if (text.includes("ticket")) {
-      return "This is usually a permissions issue, wrong ticket category ID, or role hierarchy problem. Make sure the bot has Manage Channels and View Channel and the category ID is correct.";
-    }
-    if (text.includes("railway")) {
-      return "Railway issues are often caused by no fresh deploy or sleep mode. Redeploy and make sure Railway is using the latest GitHub version.";
-    }
-    if (text.includes("offline") || text.includes("bot off")) {
-      return "Make sure TOKEN exists in Railway and check that the bot is logged in successfully in the logs.";
-    }
-    if (text.includes("role") || text.includes("rank")) {
-      return "Make sure the bot role is above the roles it manages. Otherwise it cannot assign roles or manage channels.";
-    }
-    if (text.includes("dm")) {
-      return "Make sure DMs are enabled because some application flows depend on private messages.";
-    }
-    if (text.includes("review")) {
-      return "Check your review channel IDs and make sure the bot can View Channel and Send Messages there.";
-    }
-    if (text.includes("rules")) {
-      return "Check your rules links and logo URL in the config section. Make sure all links are valid and public.";
-    }
-    return "Check Railway logs first, then verify permissions, IDs, role hierarchy, and rules links. The issue is usually in the setup, not the login.";
-  };
-
-  return lang === "en" ? replyEn() : replyAr();
-}
-
-async function sendHelpLog(guild, userId, lang, problem) {
-  const ch = await guild.channels.fetch(HELP_CHANNEL_ID).catch(() => null);
-  if (!ch?.isTextBased()) return;
-
-  const embed = new EmbedBuilder()
-    .setColor(0xff0000)
-    .setTitle("AI Help Request")
-    .addFields(
-      { name: "User", value: `<@${userId}>`, inline: true },
-      { name: "Language", value: lang === "en" ? "English" : "Arabic", inline: true },
-      { name: "Problem", value: safeTrim(problem, 1900), inline: false }
-    )
-    .setFooter({ text: `${SERVER_NAME} • AI Help` })
-    .setTimestamp();
-
-  await ch.send({ embeds: [embed] }).catch(() => {});
-}
-
-async function notifyHelpChannel(guild, text) {
-  const ch = await guild.channels.fetch(HELP_CHANNEL_ID).catch(() => null);
-  if (!ch?.isTextBased()) return;
-  await ch.send({ content: text }).catch(() => {});
-}
-
-// ======================================================
-// CREATOR LINK PARSER
+// CREATOR HELPERS
 // ======================================================
 const PLATFORMS = [
   { name: "Twitch", color: 0x9146ff, regex: /twitch\.tv\/([^/?#]+)/i },
@@ -740,24 +607,21 @@ const PLATFORMS = [
 ];
 
 function parseCreatorLink(link) {
-  const cleanLink = String(link || "").trim();
+  const clean = String(link || "").trim();
   for (const p of PLATFORMS) {
-    const match = cleanLink.match(p.regex);
+    const match = clean.match(p.regex);
     if (match) {
       return {
         platform: p.name,
         color: p.color,
         name: match[1],
-        link: cleanLink,
+        link: clean,
       };
     }
   }
   return null;
 }
 
-// ======================================================
-// CREATOR SYSTEM
-// ======================================================
 function normalizeCreator(raw) {
   return {
     userId: String(raw.userId),
@@ -775,32 +639,25 @@ function getCreatorByUserId(userId) {
 }
 
 function sortCreators() {
-  creators = creators
-    .map(normalizeCreator)
-    .sort((a, b) => {
-      if ((b.avgViews || 0) !== (a.avgViews || 0)) {
-        return (b.avgViews || 0) - (a.avgViews || 0);
-      }
-      return (b.followers || 0) - (a.followers || 0);
-    });
+  creators = creators.map(normalizeCreator).sort((a, b) => {
+    if ((b.avgViews || 0) !== (a.avgViews || 0)) return (b.avgViews || 0) - (a.avgViews || 0);
+    return (b.followers || 0) - (a.followers || 0);
+  });
 }
 
 function addOrUpdateCreator(data) {
-  const creator = normalizeCreator(data);
-  const existing = getCreatorByUserId(creator.userId);
+  const next = normalizeCreator(data);
+  const existing = getCreatorByUserId(next.userId);
 
   if (existing) {
-    existing.name = creator.name;
-    existing.platform = creator.platform;
-    existing.link = creator.link;
-    existing.followers = creator.followers;
-    existing.avgViews = creator.avgViews;
+    existing.name = next.name;
+    existing.platform = next.platform;
+    existing.link = next.link;
+    existing.followers = next.followers;
+    existing.avgViews = next.avgViews;
     existing.updatedAt = new Date().toISOString();
   } else {
-    creators.push({
-      ...creator,
-      updatedAt: new Date().toISOString(),
-    });
+    creators.push({ ...next, updatedAt: new Date().toISOString() });
   }
 
   sortCreators();
@@ -832,7 +689,7 @@ function creatorLeaderboardEmbed(guild) {
     .setColor(0x00c2ff)
     .setTitle("🏆 لوحة صناع المحتوى")
     .setDescription(desc)
-    .setFooter({ text: `Night City RP • ${PANEL_MARKER_CREATOR_BOARD}` })
+    .setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_CREATOR_BOARD}` })
     .setTimestamp();
 }
 
@@ -845,7 +702,6 @@ async function updateCreatorBoard(guild) {
   if (settings.creatorBoardMessageId) {
     msg = await ch.messages.fetch(settings.creatorBoardMessageId).catch(() => null);
   }
-
   if (!msg) {
     msg = await findMarkerMessage(ch, PANEL_MARKER_CREATOR_BOARD);
   }
@@ -864,151 +720,154 @@ async function updateCreatorBoard(guild) {
   await msg.edit(payload).catch(() => {});
 }
 
-function creatorRegistryEmbed(data, discordUserId) {
-  return new EmbedBuilder()
-    .setColor(data.color || 0x00c2ff)
-    .setTitle("🎥 تم تحديث بيانات صانع المحتوى")
-    .setDescription(
-      `**العضو:** <@${discordUserId}>\n` +
-      `**المنصة:** ${safeTrim(data.platform, 50)}\n` +
-      `**اسم القناة:** ${safeTrim(data.name, 100)}\n` +
-      `**المتابعين:** ${formatNum(data.followers)}\n` +
-      `**متوسط المشاهدات:** ${formatNum(data.avgViews)}\n\n` +
-      `**الرابط:**\n${safeTrim(data.link, 500)}`
-    )
-    .setFooter({ text: "Night City RP • Creators" })
-    .setTimestamp();
+// ======================================================
+// AI HELP
+// ======================================================
+function getAiReply(problem, lang = "ar") {
+  const text = String(problem || "").toLowerCase();
+
+  const ar = () => {
+    if (text.includes("ticket") || text.includes("التذكرة")) {
+      return "غالبًا المشكلة من صلاحيات البوت أو كاتيجوري التذاكر أو ترتيب الرتب. تأكد من Manage Channels و View Channel وأن الـ Category ID صحيح.";
+    }
+    if (text.includes("railway")) {
+      return "راجع Deploy جديد وتأكد أن Railway يأخذ آخر نسخة من GitHub وأن المتغيرات موجودة.";
+    }
+    if (text.includes("offline") || text.includes("البوت اوف")) {
+      return "تأكد أن TOKEN موجود وأن البوت سجل دخول فعلًا في اللوجز.";
+    }
+    if (text.includes("role") || text.includes("رتبة")) {
+      return "تأكد أن رتبة البوت أعلى من الرتب التي يمنحها أو يديرها.";
+    }
+    if (text.includes("dm") || text.includes("خاص")) {
+      return "تأكد أن الخاص مفتوح لأن التقديمات تعتمد على الرسائل الخاصة.";
+    }
+    return "راجع اللوجز أولًا ثم IDs والصلاحيات وترتيب الرتب وروابط القوانين.";
+  };
+
+  const en = () => {
+    if (text.includes("ticket")) {
+      return "Usually this is a permissions issue, wrong category ID, or role hierarchy problem.";
+    }
+    if (text.includes("railway")) {
+      return "Check a fresh deploy and verify Railway is using the latest code and env vars.";
+    }
+    if (text.includes("offline")) {
+      return "Make sure TOKEN exists and the bot logged in successfully.";
+    }
+    if (text.includes("role")) {
+      return "Make sure the bot role is above the roles it manages.";
+    }
+    if (text.includes("dm")) {
+      return "Make sure DMs are enabled because applications rely on private messages.";
+    }
+    return "Check logs, IDs, permissions, role hierarchy, and rules links.";
+  };
+
+  return lang === "en" ? en() : ar();
 }
 
-async function tryAutoFetchCreatorStats(parsed) {
-  if (!parsed) return null;
-  if (parsed.platform === "YouTube" && YOUTUBE_API_KEY) return null;
-  if (parsed.platform === "Twitch" && TWITCH_CLIENT_ID && TWITCH_CLIENT_SECRET) return null;
-  return null;
+async function notifyHelpChannel(guild, text) {
+  const ch = await guild.channels.fetch(HELP_CHANNEL_ID).catch(() => null);
+  if (ch?.isTextBased()) {
+    await ch.send({ content: text }).catch(() => {});
+  }
 }
 
 // ======================================================
-// PRETTY EMBEDS
+// EMBEDS
 // ======================================================
 function buildWelcomeEmbed(member) {
   return new EmbedBuilder()
     .setColor(0x2b6cff)
-    .setTitle("👋 Welcome To Night City RP")
+    .setTitle(`👋 Welcome To ${SERVER_NAME}`)
     .setDescription(
       `مرحباً <@${member.id}>\n\n` +
-      `أهلاً بك في **Night City RP**\n\n` +
-      `يرجى قراءة القوانين ثم التقديم على الوايت ليست.\n` +
-      `ولو حابب تقدم على عصابة هتلاقي بانل العصابات في روم الخدمات.`
+        `أهلاً بك في **${SERVER_NAME}**\n\n` +
+        "يرجى قراءة القوانين ثم التقديم على الوايت ليست.\n" +
+        "ولو حابب تقدم على عصابة هتلاقي بانل العصابات في روم الخدمات."
     )
     .setThumbnail(member.user.displayAvatarURL())
-    .setFooter({ text: "Night City RP" })
+    .setFooter({ text: SERVER_NAME })
     .setTimestamp();
 }
 
 function buildRulesEmbed() {
   return new EmbedBuilder()
     .setColor(0xff0000)
-    .setAuthor({
-      name: SERVER_NAME,
-      iconURL: SERVER_LOGO_URL || undefined,
-    })
+    .setAuthor({ name: SERVER_NAME, iconURL: SERVER_LOGO_URL || undefined })
     .setDescription(
       "قوانين ليست للتهاون\n\n" +
-      "جميع القوانين قابلة للتغيير في أي وقت.\n" +
-      "يرجى الاطلاع عليها من حين لآخر لضمان معرفتك بأحدث التحديثات."
+        "جميع القوانين قابلة للتغيير في أي وقت.\n" +
+        "يرجى الاطلاع عليها من حين لآخر لضمان معرفتك بأحدث التحديثات."
     )
     .setImage(SERVER_LOGO_URL || null)
-    .setFooter({
-      text: SERVER_NAME,
-    });
+    .setFooter({ text: SERVER_NAME });
 }
 
 function buildHelpEmbed() {
   return new EmbedBuilder()
     .setColor(0xff0000)
-    .setAuthor({
-      name: SERVER_NAME,
-      iconURL: SERVER_LOGO_URL || undefined,
-    })
+    .setAuthor({ name: SERVER_NAME, iconURL: SERVER_LOGO_URL || undefined })
     .setDescription("إذا عندك أي مشكلة في السيرفر أو البوت، اختر اللغة أو استخدم AI واكتب المشكلة.")
-    .setFooter({
-      text: `${SERVER_NAME} • Help Center`,
-    });
+    .setFooter({ text: `${SERVER_NAME} • Help Center` });
 }
 
 function rpAcceptEmbed(guildId) {
   const url = `https://discord.com/channels/${guildId}/${VOICE_ROOM_ID}`;
   return {
     embed: new EmbedBuilder()
-      .setColor("#00ff88")
+      .setColor(0x00ff88)
       .setTitle("🏙️ تم قبولك في السيرفر!")
       .setDescription(
-        "━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-        "🎉 **مبروك!**\n\n" +
-        "تم قبول طلبك في **Night City RP**.\n\n" +
-        "الخطوة التالية هي إجراء **المقابلة الصوتية**.\n\n" +
-        "اضغط الزر بالأسفل للدخول إلى غرفة المقابلة.\n\n" +
-        "يرجى الالتزام بالقوانين واحترام الإدارة.\n\n" +
-        "━━━━━━━━━━━━━━━━━━━━━━"
+        "🎉 مبروك\n\n" +
+          `تم قبول طلبك في **${SERVER_NAME}**.\n\n` +
+          "الخطوة التالية هي المقابلة الصوتية."
       )
-      .setFooter({ text: "Night City RP • الإدارة" })
+      .setFooter({ text: `${SERVER_NAME} • الإدارة` })
       .setTimestamp(),
     row: new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setLabel("🎤 دخول المقابلة الصوتية")
-        .setStyle(ButtonStyle.Link)
-        .setURL(url)
+      new ButtonBuilder().setLabel("🎤 دخول المقابلة الصوتية").setStyle(ButtonStyle.Link).setURL(url)
     ),
   };
 }
 
 function creatorAcceptEmbed() {
   return new EmbedBuilder()
-    .setColor("#00ff88")
+    .setColor(0x00ff88)
     .setTitle("🎥 تم قبولك كصانع محتوى!")
     .setDescription(
-      "━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-      "🎉 **مبروك!**\n\n" +
-      "تم قبولك في **برنامج صناع المحتوى** في سيرفر\n" +
-      "**Night City RP**.\n\n" +
-      "تم تسجيل بياناتك داخل النظام\n" +
-      "وسيتم إضافتك تلقائيًا في لوحة العرض.\n\n" +
-      "نتمنى لك التوفيق.\n\n" +
-      "━━━━━━━━━━━━━━━━━━━━━━"
+      "🎉 مبروك\n\n" +
+        `تم قبولك في برنامج صناع المحتوى في **${SERVER_NAME}**.\n\n` +
+        "وتم تسجيل بياناتك داخل النظام."
     )
-    .setFooter({ text: "Night City RP • الإدارة" })
+    .setFooter({ text: `${SERVER_NAME} • الإدارة` })
     .setTimestamp();
 }
 
 function adminAcceptEmbed() {
   return new EmbedBuilder()
-    .setColor("#00ff88")
+    .setColor(0x00ff88)
     .setTitle("🛡️ تم قبولك في الإدارة!")
     .setDescription(
-      "━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-      "🎉 **مبروك!**\n\n" +
-      "تم قبولك في **فريق إدارة Night City RP**.\n\n" +
-      "تم منحك الرتبة بنجاح.\n\n" +
-      "نرجو منك الالتزام بالقوانين\n" +
-      "والتعامل باحترام مع جميع اللاعبين.\n\n" +
-      "يمنع إساءة استخدام الصلاحيات.\n\n" +
-      "━━━━━━━━━━━━━━━━━━━━━━"
+      `تم قبولك في فريق إدارة **${SERVER_NAME}**.\n\n` +
+        "تم منحك الرتبة بنجاح."
     )
-    .setFooter({ text: "Night City RP • الإدارة" })
+    .setFooter({ text: `${SERVER_NAME} • الإدارة` })
     .setTimestamp();
 }
 
 function rpRejectEmbed(reason, finalReject = false) {
   return new EmbedBuilder()
     .setColor(0xff2d2d)
-    .setTitle(finalReject ? "⛔ تم رفض طلبك نهائيًا" : "❌ تم رفض طلبك في السيرفر")
+    .setTitle(finalReject ? "⛔ تم رفض طلبك نهائيًا" : "❌ تم رفض طلبك")
     .setDescription(
-      `⭐ **سبب الرفض:**\n${safeTrim(reason, 1500)}\n\n` +
-      (finalReject
-        ? "تم رفضك **نهائيًا** ولا يمكنك التقديم مرة أخرى."
-        : "يمكنك إعادة التقديم لاحقًا بعد تحسين مستواك.")
+      `**سبب الرفض:**\n${safeTrim(reason, 1500)}\n\n` +
+        (finalReject
+          ? "تم رفضك نهائيًا ولا يمكنك التقديم مرة أخرى."
+          : "يمكنك إعادة التقديم لاحقًا بعد تحسين مستواك.")
     )
-    .setFooter({ text: "Night City RP • الإدارة" })
+    .setFooter({ text: `${SERVER_NAME} • الإدارة` })
     .setTimestamp();
 }
 
@@ -1016,8 +875,8 @@ function creatorRejectEmbed(reason) {
   return new EmbedBuilder()
     .setColor(0xff2d2d)
     .setTitle("❌ تم رفض طلب صانع المحتوى")
-    .setDescription(`🎥 **سبب الرفض:**\n${safeTrim(reason, 1500)}`)
-    .setFooter({ text: "Night City RP • الإدارة" })
+    .setDescription(`**سبب الرفض:**\n${safeTrim(reason, 1500)}`)
+    .setFooter({ text: `${SERVER_NAME} • الإدارة` })
     .setTimestamp();
 }
 
@@ -1025,8 +884,8 @@ function adminRejectEmbed(reason) {
   return new EmbedBuilder()
     .setColor(0xff2d2d)
     .setTitle("❌ تم رفض طلب الإدارة")
-    .setDescription(`🛡️ **سبب الرفض:**\n${safeTrim(reason, 1500)}`)
-    .setFooter({ text: "Night City RP • الإدارة" })
+    .setDescription(`**سبب الرفض:**\n${safeTrim(reason, 1500)}`)
+    .setFooter({ text: `${SERVER_NAME} • الإدارة` })
     .setTimestamp();
 }
 
@@ -1036,11 +895,10 @@ function ticketOpenEmbed(userId, kind) {
     .setTitle("🎫 تم فتح التذكرة بنجاح")
     .setDescription(
       `مرحبًا <@${userId}>.\n\n` +
-      `**نوع التذكرة:** ${ticketLabel(kind)}\n\n` +
-      `اكتب سبب التذكرة أو المشكلة **بالتفصيل** داخل هذه القناة.\n` +
-      `سيقوم أحد أفراد الإدارة باستلامها في أقرب وقت.`
+        `**نوع التذكرة:** ${ticketLabel(kind)}\n\n` +
+        "اكتب سبب التذكرة أو المشكلة بالتفصيل داخل هذه القناة."
     )
-    .setFooter({ text: "Night City RP • Tickets" })
+    .setFooter({ text: `${SERVER_NAME} • Tickets` })
     .setTimestamp();
 }
 
@@ -1049,12 +907,10 @@ function ticketClosedDmEmbed(reason, channelName) {
     .setColor(0xff3b30)
     .setTitle("🔒 تم إغلاق تذكرتك")
     .setDescription(
-      `شكرًا لتواصلك مع **Night City RP**.\n\n` +
       `**اسم التذكرة:** ${channelName}\n\n` +
-      `**سبب الإغلاق:**\n${safeTrim(reason, 1800)}\n\n` +
-      `تم إرفاق Transcript كامل للمحادثة في هذه الرسالة.`
+        `**سبب الإغلاق:**\n${safeTrim(reason, 1800)}`
     )
-    .setFooter({ text: "Night City RP • Support" })
+    .setFooter({ text: `${SERVER_NAME} • Support` })
     .setTimestamp();
 }
 
@@ -1063,11 +919,10 @@ function ticketRatingRequestEmbed(channelName) {
     .setColor(0xffd54f)
     .setTitle("⭐ تقييم الخدمة")
     .setDescription(
-      `شكرًا لاستخدامك نظام التذاكر في **Night City RP**.\n\n` +
-      `يرجى تقييم تجربتك في التذكرة **${channelName}** من 1 إلى 5 نجوم.\n` +
-      `بعد اختيار عدد النجوم، سيطلب منك البوت كتابة سبب التقييم.`
+      `شكرًا لاستخدامك نظام التذاكر في **${SERVER_NAME}**.\n\n` +
+        `يرجى تقييم تجربتك في التذكرة **${channelName}** من 1 إلى 5 نجوم.`
     )
-    .setFooter({ text: "Night City RP • Feedback" })
+    .setFooter({ text: `${SERVER_NAME} • Feedback` })
     .setTimestamp();
 }
 
@@ -1100,8 +955,8 @@ function buildGangPanelEmbed() {
     .setTitle("🏴 بانل تقديم العصابات")
     .setDescription(
       "اضغط على زر العصابة التي تريد التقديم عليها.\n" +
-      "التقديم يتم في الخاص DM سؤال ورا سؤال.\n\n" +
-      `${list}`
+        "التقديم يتم في الخاص DM سؤال ورا سؤال.\n\n" +
+        list
     )
     .setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_GANGS}` })
     .setTimestamp();
@@ -1113,10 +968,9 @@ function buildGangAppliedDmEmbed(gangName) {
     .setTitle("✅ بدأ تقديم العصابة")
     .setDescription(
       `تم بدء تقديمك على عصابة **${gangName}**.\n\n` +
-      `أجب على الأسئلة بدقة في الخاص.\n` +
-      `أي إجابة غير واضحة قد تؤدي لرفض التقديم.`
+        "أجب على الأسئلة بدقة في الخاص."
     )
-    .setFooter({ text: "Night City RP • Gangs" })
+    .setFooter({ text: `${SERVER_NAME} • Gangs` })
     .setTimestamp();
 }
 
@@ -1125,13 +979,11 @@ function buildGangAcceptEmbed(gang, link) {
     .setColor(0x00ff88)
     .setTitle("🏴 تم قبولك في العصابة!")
     .setDescription(
-      `مبروك، تم قبول تقديمك في عصابة **${gang.name}**.\n\n` +
-      (gang.roleId
-        ? "تم أيضًا منحك رول العصابة داخل الديسكورد.\n\n"
-        : "") +
-      `🔗 **لينك سيرفر العصابة:**\n${safeTrim(link, 1000)}`
+      `تم قبول تقديمك في عصابة **${gang.name}**.\n\n` +
+        (gang.roleId ? "تم أيضًا منحك رول العصابة داخل الديسكورد.\n\n" : "") +
+        (link ? `**لينك سيرفر العصابة:**\n${safeTrim(link, 1000)}` : "")
     )
-    .setFooter({ text: "Night City RP • Gangs" })
+    .setFooter({ text: `${SERVER_NAME} • Gangs` })
     .setTimestamp();
 }
 
@@ -1141,21 +993,21 @@ function buildGangRejectEmbed(gangName, reason) {
     .setTitle("❌ تم رفض تقديم العصابة")
     .setDescription(
       `تم رفض تقديمك على عصابة **${gangName}**.\n\n` +
-      `**سبب الرفض:**\n${safeTrim(reason, 1500)}`
+        `**سبب الرفض:**\n${safeTrim(reason, 1500)}`
     )
-    .setFooter({ text: "Night City RP • Gangs" })
+    .setFooter({ text: `${SERVER_NAME} • Gangs` })
     .setTimestamp();
 }
 
 // ======================================================
-// PANELS BUILDERS
+// PANELS
 // ======================================================
 async function buildRpPanelPayload() {
   const embed = new EmbedBuilder()
     .setColor(0x5865f2)
     .setTitle("📝 التقديم على السيرفر")
-    .setDescription("اضغط الزر بالأسفل لبدء التقديم على الوايت ليست في الخاص (DM).")
-    .setFooter({ text: `Night City RP • ${PANEL_MARKER_RP}` });
+    .setDescription("اضغط الزر بالأسفل لبدء التقديم على الوايت ليست في الخاص DM.")
+    .setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_RP}` });
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -1174,37 +1026,28 @@ async function buildServicesPanelPayload() {
     .setTitle("🎫 الخدمات والتقديمات")
     .setDescription(
       "اختر من القائمة بالأسفل.\n\n" +
-      "• الدعم / الاستئناف / الشكوى / الاقتراح = يفتح تذكرة\n" +
-      "• تقديم صانع محتوى / تقديم إدارة = يرسل النموذج في الخاص\n" +
-      "• AI Help = حل أي مشكلة عامة في السيرفر أو البوت"
+        "• الدعم / الاستئناف / الشكوى / الاقتراح = يفتح تذكرة\n" +
+        "• تقديم صانع محتوى / تقديم إدارة = يرسل النموذج في الخاص\n" +
+        "• AI Help = مساعدة عامة"
     )
-    .setFooter({ text: `Night City RP • ${PANEL_MARKER_SERVICES}` });
+    .setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_SERVICES}` });
 
   const options = [];
   if (settings.support) options.push({ label: "دعم فني", description: "فتح تذكرة دعم فني", value: "support", emoji: "🧰" });
   if (settings.appeal) options.push({ label: "استئناف", description: "فتح تذكرة استئناف", value: "appeal", emoji: "📄" });
   if (settings.report) options.push({ label: "شكوى عن لاعب", description: "فتح تذكرة شكوى", value: "report", emoji: "🚨" });
   if (settings.suggest) options.push({ label: "اقتراح", description: "فتح تذكرة اقتراح", value: "suggest", emoji: "💡" });
-  if (settings.creatorApply) options.push({ label: "تقديم صانع محتوى", description: "إرسال نموذج صانع المحتوى في الخاص", value: "creator_apply", emoji: "🎥" });
-  if (settings.adminApply) options.push({ label: "تقديم إدارة", description: "إرسال نموذج الإدارة في الخاص", value: "admin_apply", emoji: "🛡️" });
+  if (settings.creatorApply) options.push({ label: "تقديم صانع محتوى", description: "نموذج صانع المحتوى", value: "creator_apply", emoji: "🎥" });
+  if (settings.adminApply) options.push({ label: "تقديم إدارة", description: "نموذج الإدارة", value: "admin_apply", emoji: "🛡️" });
 
-  options.push({
-    label: "AI Help",
-    description: "مساعدة لأي مشكلة في السيرفر أو البوت",
-    value: "ai_help",
-    emoji: "🤖"
-  });
+  options.push({ label: "AI Help", description: "مساعدة لأي مشكلة", value: "ai_help", emoji: "🤖" });
 
   const row = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
       .setCustomId("ticket_select")
       .setPlaceholder(options.length ? "اختر الخدمة" : "لا توجد خدمات متاحة الآن")
       .setDisabled(options.length === 0)
-      .addOptions(
-        options.length
-          ? options
-          : [{ label: "مغلق", description: "جميع الخدمات مغلقة", value: "closed", emoji: "🚫" }]
-      )
+      .addOptions(options.length ? options : [{ label: "مغلق", description: "جميع الخدمات مغلقة", value: "closed", emoji: "🚫" }])
   );
 
   return { embeds: [embed], components: [row] };
@@ -1215,7 +1058,7 @@ async function buildControlPanelPayload() {
     .setColor(0xf1c40f)
     .setTitle("🎛️ لوحة تحكم الأزرار")
     .setDescription("من هنا تقدر تفتح وتقفل الوظائف وتدير صناع المحتوى والعصابات.")
-    .setFooter({ text: `Night City RP • ${PANEL_MARKER_CONTROL}` })
+    .setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_CONTROL}` })
     .setTimestamp();
 
   const row1 = new ActionRowBuilder().addComponents(
@@ -1238,25 +1081,13 @@ async function buildControlPanelPayload() {
 
   const row4 = new ActionRowBuilder().addComponents(
     featureButton("toggle_gangSystem", "نظام العصابات", settings.gangSystem),
-    new ButtonBuilder()
-      .setCustomId("manual_add_creator")
-      .setLabel("➕ إضافة / تعديل صانع محتوى")
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId("create_gang")
-      .setLabel("🏴 إنشاء عصابة")
-      .setStyle(ButtonStyle.Success)
+    new ButtonBuilder().setCustomId("manual_add_creator").setLabel("➕ إضافة / تعديل صانع محتوى").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("create_gang").setLabel("🏴 إنشاء عصابة").setStyle(ButtonStyle.Success)
   );
 
   const row5 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("manage_gangs")
-      .setLabel("⚙️ إدارة العصابات")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("remove_gang_member")
-      .setLabel("❌ طرد لاعب من عصابة")
-      .setStyle(ButtonStyle.Danger)
+    new ButtonBuilder().setCustomId("manage_gangs").setLabel("⚙️ إدارة العصابات").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("remove_gang_member").setLabel("❌ طرد لاعب من عصابة").setStyle(ButtonStyle.Danger)
   );
 
   return { embeds: [embed], components: [row1, row2, row3, row4, row5] };
@@ -1264,44 +1095,25 @@ async function buildControlPanelPayload() {
 
 async function buildRulesPanelPayload() {
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setLabel("قوانين السيرفر")
-      .setStyle(ButtonStyle.Link)
-      .setURL(SERVER_RULES_LINK),
-    new ButtonBuilder()
-      .setLabel("قوانين الديسكورد")
-      .setStyle(ButtonStyle.Link)
-      .setURL(DISCORD_RULES_LINK)
+    new ButtonBuilder().setLabel("قوانين السيرفر").setStyle(ButtonStyle.Link).setURL(SERVER_RULES_LINK),
+    new ButtonBuilder().setLabel("قوانين الديسكورد").setStyle(ButtonStyle.Link).setURL(DISCORD_RULES_LINK)
   );
 
   return {
-    embeds: [
-      buildRulesEmbed().setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_RULES}` })
-    ],
+    embeds: [buildRulesEmbed().setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_RULES}` })],
     components: [row],
   };
 }
 
 async function buildHelpPanelPayload() {
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("help_ar")
-      .setLabel("عربي")
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId("help_en")
-      .setLabel("English")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("help_ai")
-      .setLabel("AI")
-      .setStyle(ButtonStyle.Success)
+    new ButtonBuilder().setCustomId("help_ar").setLabel("عربي").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("help_en").setLabel("English").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("help_ai").setLabel("AI").setStyle(ButtonStyle.Success)
   );
 
   return {
-    embeds: [
-      buildHelpEmbed().setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_HELP}` })
-    ],
+    embeds: [buildHelpEmbed().setFooter({ text: `${SERVER_NAME} • ${PANEL_MARKER_HELP}` })],
     components: [row],
   };
 }
@@ -1310,26 +1122,33 @@ async function buildGangsPanelPayload() {
   const embed = buildGangPanelEmbed();
 
   if (!settings.gangSystem) {
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("gang_system_disabled")
-        .setLabel("🚫 نظام العصابات مغلق")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true)
-    );
-
-    return { embeds: [embed], components: [row] };
+    return {
+      embeds: [embed],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("gang_system_disabled")
+            .setLabel("🚫 نظام العصابات مغلق")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true)
+        ),
+      ],
+    };
   }
 
   if (!gangs.length) {
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("gang_none")
-        .setLabel("لا توجد عصابات حاليًا")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(true)
-    );
-    return { embeds: [embed], components: [row] };
+    return {
+      embeds: [embed],
+      components: [
+        new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("gang_none")
+            .setLabel("لا توجد عصابات حاليًا")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true)
+        ),
+      ],
+    };
   }
 
   const buttons = gangs.slice(0, 25).map((gang) =>
@@ -1348,11 +1167,9 @@ async function updateGangsPanel(guild) {
   if (!ch?.isTextBased()) return;
 
   let msg = null;
-
   if (settings.gangsPanelMessageId) {
     msg = await ch.messages.fetch(settings.gangsPanelMessageId).catch(() => null);
   }
-
   if (!msg) {
     msg = await findMarkerMessage(ch, PANEL_MARKER_GANGS);
   }
@@ -1417,77 +1234,6 @@ async function ensurePanels(guild) {
 }
 
 // ======================================================
-// WELCOME
-// ======================================================
-client.on("guildMemberAdd", async (member) => {
-  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
-  if (!channel) return;
-
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setLabel("قوانين السيرفر")
-      .setStyle(ButtonStyle.Link)
-      .setURL(SERVER_RULES_LINK),
-
-    new ButtonBuilder()
-      .setLabel("نموذج التقديم")
-      .setStyle(ButtonStyle.Link)
-      .setURL(`https://discord.com/channels/${member.guild.id}/${RP_APPLY_PANEL_CHANNEL_ID}`),
-
-    new ButtonBuilder()
-      .setCustomId("open_feedback")
-      .setLabel("تقييم السيرفر")
-      .setStyle(settings.feedback ? ButtonStyle.Primary : ButtonStyle.Secondary)
-      .setDisabled(!settings.feedback)
-  );
-
-  await channel.send({
-    content: `<@${member.id}>`,
-    embeds: [buildWelcomeEmbed(member)],
-    components: [row],
-  }).catch(() => {});
-});
-
-// ======================================================
-// READY / RESTORE
-// ======================================================
-client.once("clientReady", async () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
-  sortCreators();
-  saveCreators();
-  normalizeAllGangs();
-
-  activeApplications.clear();
-  for (const userId of Object.keys(sessions)) {
-    activeApplications.add(String(userId));
-  }
-
-  for (const [, guild] of client.guilds.cache) {
-    await ensurePanels(guild).catch(() => {});
-  }
-});
-
-client.on("messageDelete", async (message) => {
-  try {
-    const footer = message.embeds?.[0]?.footer?.text || "";
-    if (
-      !footer.includes(PANEL_MARKER_RP) &&
-      !footer.includes(PANEL_MARKER_SERVICES) &&
-      !footer.includes(PANEL_MARKER_CONTROL) &&
-      !footer.includes(PANEL_MARKER_CREATOR_BOARD) &&
-      !footer.includes(PANEL_MARKER_RULES) &&
-      !footer.includes(PANEL_MARKER_HELP) &&
-      !footer.includes(PANEL_MARKER_GANGS)
-    ) return;
-
-    if (!message.guildId) return;
-    const guild = await client.guilds.fetch(message.guildId).catch(() => null);
-    if (!guild) return;
-    await ensurePanels(guild).catch(() => {});
-  } catch {}
-});
-
-// ======================================================
 // APPLICATION FLOW
 // ======================================================
 async function startDmFlow(user, guild, type, extra = {}) {
@@ -1499,12 +1245,8 @@ async function startDmFlow(user, guild, type, extra = {}) {
   }
 
   if (type === "rp") {
-    if (member.roles.cache.has(RP_REJECT2_ROLE_ID)) {
-      return { ok: false, reason: "final_reject" };
-    }
-    if (member.roles.cache.has(RP_PASS_ROLE_ID)) {
-      return { ok: false, reason: "already_accepted" };
-    }
+    if (member.roles.cache.has(RP_REJECT2_ROLE_ID)) return { ok: false, reason: "final_reject" };
+    if (member.roles.cache.has(RP_PASS_ROLE_ID)) return { ok: false, reason: "already_accepted" };
   }
 
   if (type === "gang") {
@@ -1529,15 +1271,15 @@ async function startDmFlow(user, guild, type, extra = {}) {
 
   const sessionData = {
     type,
+    guildId: guild.id,
     step: 0,
     answers: {},
-    guildId: guild.id,
     ...(type === "gang"
       ? {
           gangId: String(extra.gangId),
           questions,
         }
-      : {}),
+      : { questions }),
   };
 
   setSession(user.id, sessionData);
@@ -1547,7 +1289,7 @@ async function startDmFlow(user, guild, type, extra = {}) {
       type === "rp"
         ? "✅ بدأنا تقديم السيرفر في الخاص.\nأجب على الأسئلة بدقة.\n⚠️ قصة الشخصية يجب أن تكون 150 كلمة على الأقل."
         : type === "creator"
-        ? "✅ بدأنا تقديم صانع المحتوى في الخاص.\nأجب على الأسئلة بدقة.\n⚠️ يفضل وضع الأرقام بشكل واضح."
+        ? "✅ بدأنا تقديم صانع المحتوى في الخاص.\nأجب على الأسئلة بدقة."
         : type === "admin"
         ? "✅ بدأنا تقديم الإدارة في الخاص.\nأجب على الأسئلة بدقة."
         : "";
@@ -1590,7 +1332,7 @@ async function submitRpToReview(guild, userId, answers) {
     .setColor(0x5865f2)
     .setTitle("📩 طلب انضمام جديد للسيرفر")
     .addFields(reviewFieldsFromQuestions(RP_QUESTIONS, answers))
-    .setFooter({ text: `user:${userId}` })
+    .setFooter({ text: `type:rp | user:${userId}` })
     .setTimestamp();
 
   const row = new ActionRowBuilder().addComponents(
@@ -1615,7 +1357,7 @@ async function submitCreatorToReview(guild, userId, answers) {
       { name: "المنصة المستخرجة", value: safeTrim(info.platform, 100) || "-", inline: true },
       { name: "اسم القناة المستخرج", value: safeTrim(info.channelName, 100) || "-", inline: true }
     )
-    .setFooter({ text: `user:${userId}` })
+    .setFooter({ text: `type:creator | user:${userId}` })
     .setTimestamp();
 
   const row = new ActionRowBuilder().addComponents(
@@ -1634,7 +1376,7 @@ async function submitAdminToReview(guild, userId, answers) {
     .setColor(0xff9800)
     .setTitle("🛡️ طلب إدارة جديد")
     .addFields(reviewFieldsFromQuestions(ADMIN_QUESTIONS, answers))
-    .setFooter({ text: `user:${userId}` })
+    .setFooter({ text: `type:admin | user:${userId}` })
     .setTimestamp();
 
   const row = new ActionRowBuilder().addComponents(
@@ -1656,7 +1398,7 @@ async function submitGangToReview(guild, userId, gangId, answers) {
     .setColor(0x111111)
     .setTitle(`🏴 طلب انضمام جديد لعصابة ${gang.name}`)
     .addFields(buildGangReviewFields(gang, answers))
-    .setFooter({ text: `user:${userId} | gang:${gang.id}` })
+    .setFooter({ text: `type:gang | user:${userId} | gang:${gang.id}` })
     .setTimestamp();
 
   const row = new ActionRowBuilder().addComponents(
@@ -1672,8 +1414,7 @@ async function submitGangToReview(guild, userId, gangId, answers) {
 // ======================================================
 async function createTicket(interaction, kind) {
   const guild = interaction.guild;
-  const member = interaction.member;
-  if (!guild || !member) return;
+  if (!guild) return;
 
   if (!["support", "appeal", "report", "suggest"].includes(kind)) {
     return replyEphemeral(interaction, "❌ نوع التذكرة غير صحيح.");
@@ -1681,14 +1422,11 @@ async function createTicket(interaction, kind) {
 
   if (kind === "support" && !settings.support) return replyEphemeral(interaction, "⚠️ الدعم الفني مغلق حاليًا.");
   if (kind === "appeal" && !settings.appeal) return replyEphemeral(interaction, "⚠️ الاستئناف مغلق حاليًا.");
-  if (kind === "report" && !settings.report) return replyEphemeral(interaction, "⚠️ الشكاوى عن اللاعبين مغلقة حاليًا.");
+  if (kind === "report" && !settings.report) return replyEphemeral(interaction, "⚠️ الشكاوى مغلقة حاليًا.");
   if (kind === "suggest" && !settings.suggest) return replyEphemeral(interaction, "⚠️ الاقتراحات مغلقة حاليًا.");
 
   const categoryId = ticketCategory(kind);
-  const category = await guild.channels.fetch(categoryId).catch((err) => {
-    console.log("ticket category fetch error:", err?.message || err);
-    return null;
-  });
+  const category = await guild.channels.fetch(categoryId).catch(() => null);
 
   if (!category || category.type !== ChannelType.GuildCategory) {
     await notifyHelpChannel(
@@ -1708,452 +1446,417 @@ async function createTicket(interaction, kind) {
     return replyEphemeral(interaction, `⚠️ لديك تذكرة مفتوحة بالفعل: ${existing}`);
   }
 
-  const cleanName = interaction.user.username
-    .toLowerCase()
-    .replace(/[^a-z0-9-_]/g, "")
-    .slice(0, 20) || "user";
+  const cleanName = slugifyText(interaction.user.username, 20);
 
-  const channel = await guild.channels.create({
-    name: `${kind}-${cleanName}`.slice(0, 95),
-    type: ChannelType.GuildText,
-    parent: categoryId,
-    topic: ticketTopic(interaction.user.id, kind, "none"),
-    permissionOverwrites: [
-      { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-      {
-        id: interaction.user.id,
-        allow: [
-          PermissionsBitField.Flags.ViewChannel,
-          PermissionsBitField.Flags.SendMessages,
-          PermissionsBitField.Flags.ReadMessageHistory,
-          PermissionsBitField.Flags.AttachFiles,
-          PermissionsBitField.Flags.EmbedLinks,
-        ],
-      },
-      ...ADMIN_ROLE_IDS.map((rid) => ({
-        id: rid,
-        allow: [
-          PermissionsBitField.Flags.ViewChannel,
-          PermissionsBitField.Flags.SendMessages,
-          PermissionsBitField.Flags.ReadMessageHistory,
-          PermissionsBitField.Flags.ManageChannels,
-          PermissionsBitField.Flags.AttachFiles,
-          PermissionsBitField.Flags.EmbedLinks,
-        ],
-      })),
-    ],
-  }).catch((err) => {
-    console.log("ticket create error:", err?.message || err);
-    return null;
-  });
+  const channel = await guild.channels
+    .create({
+      name: `${kind}-${cleanName}`.slice(0, 95),
+      type: ChannelType.GuildText,
+      parent: categoryId,
+      topic: ticketTopic(interaction.user.id, kind, "none"),
+      permissionOverwrites: [
+        { id: guild.roles.everyone.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+        {
+          id: interaction.user.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory,
+            PermissionsBitField.Flags.AttachFiles,
+            PermissionsBitField.Flags.EmbedLinks,
+          ],
+        },
+        ...ADMIN_ROLE_IDS.map((rid) => ({
+          id: rid,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory,
+            PermissionsBitField.Flags.ManageChannels,
+            PermissionsBitField.Flags.ManageMessages,
+            PermissionsBitField.Flags.AttachFiles,
+            PermissionsBitField.Flags.EmbedLinks,
+          ],
+        })),
+      ],
+    })
+    .catch((err) => {
+      console.log("ticket create error:", err?.message || err);
+      return null;
+    });
 
   if (!channel) {
-    await notifyHelpChannel(guild, `❌ فشل إنشاء تذكرة.\nUser: <@${interaction.user.id}>\nType: ${kind}`);
-    return replyEphemeral(interaction, "❌ فشل إنشاء التذكرة. تأكد من صلاحيات البوت والكاتيجوري.");
+    return replyEphemeral(interaction, "❌ فشل إنشاء التذكرة.");
   }
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("ticket_claim")
-      .setLabel("📌 استلام التذكرة")
-      .setStyle(ButtonStyle.Primary),
-
-    new ButtonBuilder()
-      .setCustomId("ticket_close_reason")
-      .setLabel("🔒 إغلاق التذكرة")
-      .setStyle(ButtonStyle.Danger)
+    new ButtonBuilder().setCustomId("ticket_claim").setLabel("📌 استلام التذكرة").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("ticket_close_reason").setLabel("🔒 إغلاق التذكرة").setStyle(ButtonStyle.Danger)
   );
 
   await channel.send({
     content: `<@${interaction.user.id}>`,
     embeds: [ticketOpenEmbed(interaction.user.id, kind)],
     components: [row],
-  }).catch((err) => {
-    console.log("ticket open send error:", err?.message || err);
   });
 
-  return replyEphemeral(interaction, `✅ تم إنشاء التذكرة بنجاح: ${channel}`);
+  return replyEphemeral(interaction, "✅ تم فتح التذكرة بنجاح.");
+}
+
+async function closeTicket(channel, closedById, reason) {
+  try {
+    const info = parseTicketTopic(channel.topic);
+    const ownerId = info.owner;
+    const owner = ownerId ? await channel.client.users.fetch(ownerId).catch(() => null) : null;
+
+    const transcriptPath = await createTranscriptFile(channel).catch(() => null);
+
+    if (owner) {
+      const files = [];
+      if (transcriptPath && fs.existsSync(transcriptPath)) {
+        files.push(new AttachmentBuilder(transcriptPath));
+      }
+
+      await owner
+        .send({
+          embeds: [ticketClosedDmEmbed(reason, channel.name)],
+          files,
+          components: settings.feedback ? [buildTicketRatingRow(channel.id)] : [],
+        })
+        .catch(() => {});
+    }
+
+    await channel.delete(`Closed by ${closedById} | ${reason}`).catch(() => {});
+  } catch (err) {
+    console.log("closeTicket error:", err?.message || err);
+  }
+}
+
+// ======================================================
+// GANG CRUD
+// ======================================================
+async function createGangFromModal(interaction, fields) {
+  const guild = interaction.guild;
+  if (!guild) return;
+
+  const name = safeTrim(fields.getTextInputValue("gang_name"), 80);
+  const limit = Number(fields.getTextInputValue("gang_limit")) || 0;
+  const roleId = safeTrim(fields.getTextInputValue("gang_role"), 50);
+  const inviteLink = safeTrim(fields.getTextInputValue("gang_link"), 1000);
+
+  if (!name) return replyEphemeral(interaction, "❌ اسم العصابة مطلوب.");
+
+  if (gangs.some((g) => g.name.toLowerCase() === name.toLowerCase())) {
+    return replyEphemeral(interaction, "❌ توجد عصابة بنفس الاسم.");
+  }
+
+  let reviewRoom = null;
+  try {
+    reviewRoom = await createGangReviewChannel(guild, name);
+  } catch {
+    return replyEphemeral(interaction, "❌ فشل إنشاء روم مراجعة العصابة.");
+  }
+
+  gangs.push(
+    normalizeGang({
+      id: String(Date.now()),
+      name,
+      reviewRoomId: reviewRoom.id,
+      roleId,
+      limit,
+      open: true,
+      members: [],
+      inviteLink,
+    })
+  );
+  saveGangs();
+
+  await updateGangsPanel(guild).catch(() => {});
+
+  return replyEphemeral(interaction, `✅ تم إنشاء العصابة **${name}** بنجاح.`);
 }
 
 // ======================================================
 // MODALS
 // ======================================================
-async function openRejectModal(interaction, type, userId, gangId = "") {
-  const title =
-    type === "rp"
-      ? "سبب رفض تقديم السيرفر"
-      : type === "creator"
-      ? "سبب رفض صانع المحتوى"
-      : type === "admin"
-      ? "سبب رفض الإدارة"
-      : "سبب رفض تقديم العصابة";
-
-  const modal = new ModalBuilder()
-    .setCustomId(type === "gang" ? `modal_reject_gang_${gangId}_${userId}` : `modal_reject_${type}_${userId}`)
-    .setTitle(title);
-
-  const input = new TextInputBuilder()
-    .setCustomId("reason")
-    .setLabel("اكتب سبب الرفض")
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(true);
-
-  modal.addComponents(new ActionRowBuilder().addComponents(input));
-  await interaction.showModal(modal);
+function buildRejectReasonModal(customId, title = "سبب الرفض") {
+  return new ModalBuilder()
+    .setCustomId(customId)
+    .setTitle(title)
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("reason")
+          .setLabel("اكتب السبب")
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true)
+          .setMaxLength(1800)
+      )
+    );
 }
 
-async function openGangAcceptModal(interaction, gangId, userId) {
-  const gang = getGangById(gangId);
-  if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
-
-  const modal = new ModalBuilder()
-    .setCustomId(`modal_accept_gang_${gangId}_${userId}`)
-    .setTitle(`قبول في ${safeTrim(gang.name, 30)}`);
-
-  const link = new TextInputBuilder()
-    .setCustomId("link")
-    .setLabel("لينك سيرفر الديسكورد")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  modal.addComponents(new ActionRowBuilder().addComponents(link));
-  await interaction.showModal(modal);
+function buildCloseTicketModal() {
+  return new ModalBuilder()
+    .setCustomId("modal_close_ticket")
+    .setTitle("إغلاق التذكرة")
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder()
+          .setCustomId("reason")
+          .setLabel("سبب الإغلاق")
+          .setStyle(TextInputStyle.Paragraph)
+          .setRequired(true)
+          .setMaxLength(1800)
+      )
+    );
 }
 
-async function openFeedbackReasonModal(interaction, stars) {
-  const modal = new ModalBuilder()
-    .setCustomId(`modal_feedback_${stars}`)
-    .setTitle(`سبب التقييم (${stars} نجوم)`);
-
-  const input = new TextInputBuilder()
-    .setCustomId("reason")
-    .setLabel("اكتب سبب التقييم")
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(true);
-
-  modal.addComponents(new ActionRowBuilder().addComponents(input));
-  await interaction.showModal(modal);
+function buildManualCreatorModal() {
+  return new ModalBuilder()
+    .setCustomId("modal_manual_creator")
+    .setTitle("إضافة / تعديل صانع محتوى")
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId("user_id").setLabel("User ID").setStyle(TextInputStyle.Short).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId("channel_name").setLabel("اسم القناة").setStyle(TextInputStyle.Short).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId("platform").setLabel("المنصة").setStyle(TextInputStyle.Short).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId("followers").setLabel("المتابعين").setStyle(TextInputStyle.Short).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId("avg_views").setLabel("متوسط المشاهدات").setStyle(TextInputStyle.Short).setRequired(true)
+      )
+    );
 }
 
-async function openTicketCloseReasonModal(interaction) {
-  const modal = new ModalBuilder()
-    .setCustomId(`modal_ticket_close_${interaction.channelId}`)
-    .setTitle("سبب إغلاق التذكرة");
-
-  const input = new TextInputBuilder()
-    .setCustomId("reason")
-    .setLabel("اكتب سبب الإغلاق")
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(true);
-
-  modal.addComponents(new ActionRowBuilder().addComponents(input));
-  await interaction.showModal(modal);
-}
-
-async function openTicketRatingReasonModal(interaction, channelId, stars) {
-  const modal = new ModalBuilder()
-    .setCustomId(`modal_ticket_rating_${channelId}_${stars}`)
-    .setTitle(`سبب تقييم التذكرة (${stars} نجوم)`);
-
-  const input = new TextInputBuilder()
-    .setCustomId("reason")
-    .setLabel("اكتب سبب تقييمك")
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(true);
-
-  modal.addComponents(new ActionRowBuilder().addComponents(input));
-  await interaction.showModal(modal);
-}
-
-async function openCreatorLinkModal(interaction) {
-  const modal = new ModalBuilder()
-    .setCustomId("modal_add_creator_link")
-    .setTitle("إضافة / تعديل بيانات صانع محتوى");
-
-  const link = new TextInputBuilder()
-    .setCustomId("link")
-    .setLabel("ضع رابط المنصة")
-    .setPlaceholder("مثال: https://twitch.tv/shady")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  const followers = new TextInputBuilder()
-    .setCustomId("followers")
-    .setLabel("عدد المتابعين / المشتركين")
-    .setPlaceholder("مثال: 12000")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  const avgViews = new TextInputBuilder()
-    .setCustomId("avgViews")
-    .setLabel("متوسط المشاهدات")
-    .setPlaceholder("مثال: 4500")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(link),
-    new ActionRowBuilder().addComponents(followers),
-    new ActionRowBuilder().addComponents(avgViews)
-  );
-
-  await interaction.showModal(modal);
-}
-
-async function openManualCreatorModal(interaction) {
-  const modal = new ModalBuilder()
-    .setCustomId("modal_manual_add_creator")
-    .setTitle("إضافة / تعديل صانع محتوى يدويًا");
-
-  const userId = new TextInputBuilder()
-    .setCustomId("userId")
-    .setLabel("Discord User ID")
-    .setPlaceholder("ضع آيدي العضو")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  const name = new TextInputBuilder()
-    .setCustomId("name")
-    .setLabel("اسم القناة")
-    .setPlaceholder("اسم القناة أو الحساب")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  const link = new TextInputBuilder()
-    .setCustomId("link")
-    .setLabel("الرابط")
-    .setPlaceholder("https://...")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  const followers = new TextInputBuilder()
-    .setCustomId("followers")
-    .setLabel("المتابعين")
-    .setPlaceholder("مثال: 10000")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  const avgViews = new TextInputBuilder()
-    .setCustomId("avgViews")
-    .setLabel("متوسط المشاهدات")
-    .setPlaceholder("مثال: 3000")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(userId),
-    new ActionRowBuilder().addComponents(name),
-    new ActionRowBuilder().addComponents(link),
-    new ActionRowBuilder().addComponents(followers),
-    new ActionRowBuilder().addComponents(avgViews)
-  );
-
-  await interaction.showModal(modal);
-}
-
-async function openAiProblemModal(interaction, lang) {
-  const modal = new ModalBuilder()
-    .setCustomId(`modal_ai_help_${lang}`)
-    .setTitle(lang === "en" ? "AI Help" : "مساعدة AI");
-
-  const input = new TextInputBuilder()
-    .setCustomId("problem")
-    .setLabel(lang === "en" ? "Describe your problem" : "اكتب مشكلتك")
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(true);
-
-  modal.addComponents(new ActionRowBuilder().addComponents(input));
-  await interaction.showModal(modal);
-}
-
-async function openCreateGangModal(interaction) {
-  const modal = new ModalBuilder()
+function buildCreateGangModal() {
+  return new ModalBuilder()
     .setCustomId("modal_create_gang")
-    .setTitle("إنشاء عصابة جديدة");
-
-  const name = new TextInputBuilder()
-    .setCustomId("name")
-    .setLabel("اسم العصابة")
-    .setPlaceholder("مثال: سلاطين الظل")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  const limit = new TextInputBuilder()
-    .setCustomId("limit")
-    .setLabel("Limit عدد أعضاء العصابة")
-    .setPlaceholder("مثال: 20")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
-
-  const roleId = new TextInputBuilder()
-    .setCustomId("roleId")
-    .setLabel("Role ID للعصابة (اختياري)")
-    .setPlaceholder("سيتم إعطاء الرول عند القبول لو موجود")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false);
-
-  const externalGuildId = new TextInputBuilder()
-    .setCustomId("externalGuildId")
-    .setLabel("Guild ID لسيرفر العصابة الخارجي (اختياري)")
-    .setPlaceholder("لو البوت في سيرفر العصابة الخارجي")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false);
-
-  const q1 = new TextInputBuilder()
-    .setCustomId("q1")
-    .setLabel("أول سؤال للتقديم (اختياري)")
-    .setPlaceholder("لو تركته فاضي هيستخدم الأسئلة الافتراضية")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false);
-
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(name),
-    new ActionRowBuilder().addComponents(limit),
-    new ActionRowBuilder().addComponents(roleId),
-    new ActionRowBuilder().addComponents(externalGuildId),
-    new ActionRowBuilder().addComponents(q1)
-  );
-
-  await interaction.showModal(modal);
+    .setTitle("إنشاء عصابة")
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId("gang_name").setLabel("اسم العصابة").setStyle(TextInputStyle.Short).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId("gang_limit").setLabel("الحد الأقصى للأعضاء").setStyle(TextInputStyle.Short).setRequired(true)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId("gang_role").setLabel("Role ID").setStyle(TextInputStyle.Short).setRequired(false)
+      ),
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId("gang_link").setLabel("لينك سيرفر العصابة").setStyle(TextInputStyle.Paragraph).setRequired(false)
+      )
+    );
 }
 
-async function openGangEditModal(interaction, gangId) {
-  const gang = getGangById(gangId);
-  if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
-
-  const modal = new ModalBuilder()
-    .setCustomId(`modal_edit_gang_${gang.id}`)
-    .setTitle(`تعديل عصابة ${safeTrim(gang.name, 30)}`);
-
-  const name = new TextInputBuilder()
-    .setCustomId("name")
-    .setLabel("اسم العصابة")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setValue(gang.name);
-
-  const limit = new TextInputBuilder()
-    .setCustomId("limit")
-    .setLabel("Limit الأعضاء")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setValue(String(gang.limit || 0));
-
-  const roleId = new TextInputBuilder()
-    .setCustomId("roleId")
-    .setLabel("Role ID (اختياري)")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false)
-    .setValue(gang.roleId || "");
-
-  const externalGuildId = new TextInputBuilder()
-    .setCustomId("externalGuildId")
-    .setLabel("Guild ID الخارجي (اختياري)")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false)
-    .setValue(gang.externalGuildId || "");
-
-  const q1 = new TextInputBuilder()
-    .setCustomId("q1")
-    .setLabel("أول سؤال مخصص (اختياري)")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false)
-    .setValue(gang.questions?.[0]?.q || "");
-
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(name),
-    new ActionRowBuilder().addComponents(limit),
-    new ActionRowBuilder().addComponents(roleId),
-    new ActionRowBuilder().addComponents(externalGuildId),
-    new ActionRowBuilder().addComponents(q1)
-  );
-
-  await interaction.showModal(modal);
-}
-
-async function openRemoveGangMemberModal(interaction) {
-  const modal = new ModalBuilder()
+function buildKickGangMemberModal() {
+  return new ModalBuilder()
     .setCustomId("modal_remove_gang_member")
-    .setTitle("طرد لاعب من عصابة");
+    .setTitle("طرد لاعب من عصابة")
+    .addComponents(
+      new ActionRowBuilder().addComponents(
+        new TextInputBuilder().setCustomId("user_id").setLabel("User ID").setStyle(TextInputStyle.Short).setRequired(true)
+      )
+    );
+}
 
-  const gangName = new TextInputBuilder()
-    .setCustomId("gang")
-    .setLabel("اسم العصابة")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
+// ======================================================
+// READY / RESTORE
+// ======================================================
+client.once("clientReady", async () => {
+  console.log(`✅ Logged in as ${client.user.tag}`);
 
-  const userId = new TextInputBuilder()
-    .setCustomId("userId")
-    .setLabel("Discord ID")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true);
+  sortCreators();
+  saveCreators();
+  normalizeAllGangs();
 
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(gangName),
-    new ActionRowBuilder().addComponents(userId)
+  activeApplications.clear();
+  for (const userId of Object.keys(sessions)) {
+    activeApplications.add(String(userId));
+  }
+
+  for (const [, guild] of client.guilds.cache) {
+    await ensurePanels(guild).catch(() => {});
+  }
+});
+
+// ======================================================
+// WELCOME
+// ======================================================
+client.on("guildMemberAdd", async (member) => {
+  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+  if (!channel) return;
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setLabel("قوانين السيرفر").setStyle(ButtonStyle.Link).setURL(SERVER_RULES_LINK),
+    new ButtonBuilder()
+      .setLabel("نموذج التقديم")
+      .setStyle(ButtonStyle.Link)
+      .setURL(`https://discord.com/channels/${member.guild.id}/${RP_APPLY_PANEL_CHANNEL_ID}`),
+    new ButtonBuilder()
+      .setCustomId("open_feedback")
+      .setLabel("تقييم السيرفر")
+      .setStyle(settings.feedback ? ButtonStyle.Primary : ButtonStyle.Secondary)
+      .setDisabled(!settings.feedback)
   );
 
-  await interaction.showModal(modal);
-}
+  await channel
+    .send({
+      content: `<@${member.id}>`,
+      embeds: [buildWelcomeEmbed(member)],
+      components: [row],
+    })
+    .catch(() => {});
+});
+
+// ======================================================
+// KEEP PANELS ALIVE
+// ======================================================
+client.on("messageDelete", async (message) => {
+  try {
+    const footer = message.embeds?.[0]?.footer?.text || "";
+    if (
+      !footer.includes(PANEL_MARKER_RP) &&
+      !footer.includes(PANEL_MARKER_SERVICES) &&
+      !footer.includes(PANEL_MARKER_CONTROL) &&
+      !footer.includes(PANEL_MARKER_CREATOR_BOARD) &&
+      !footer.includes(PANEL_MARKER_RULES) &&
+      !footer.includes(PANEL_MARKER_HELP) &&
+      !footer.includes(PANEL_MARKER_GANGS)
+    ) {
+      return;
+    }
+
+    if (!message.guildId) return;
+    const guild = await client.guilds.fetch(message.guildId).catch(() => null);
+    if (!guild) return;
+
+    await ensurePanels(guild).catch(() => {});
+  } catch {}
+});
+
+// ======================================================
+// DM FLOW
+// ======================================================
+client.on("messageCreate", async (message) => {
+  try {
+    if (message.author.bot) return;
+    if (message.guild) return;
+
+    const session = getSession(message.author.id);
+    if (!session) return;
+
+    const guild = client.guilds.cache.get(session.guildId);
+    if (!guild) {
+      endSession(message.author.id);
+      return;
+    }
+
+    const questions = session.questions || [];
+    const question = questions[session.step];
+    if (!question) {
+      endSession(message.author.id);
+      return;
+    }
+
+    const answer = safeTrim(message.content, 1900);
+
+    if (tooShortAnswer(answer)) {
+      await message.channel.send("❌ الإجابة قصيرة جدًا. حاول تكتب بشكل أوضح.").catch(() => {});
+      return;
+    }
+
+    if (session.type === "rp" && question.key === "story" && wordCount(answer) < 150) {
+      await message.channel.send("❌ قصة الشخصية يجب أن تكون 150 كلمة على الأقل.").catch(() => {});
+      return;
+    }
+
+    session.answers[question.key] = answer;
+    session.step += 1;
+    setSession(message.author.id, session);
+
+    if (session.step < questions.length) {
+      await message.channel.send(questions[session.step].q).catch(() => {});
+      return;
+    }
+
+    if (session.type === "rp") {
+      await submitRpToReview(guild, message.author.id, session.answers);
+    } else if (session.type === "creator") {
+      await submitCreatorToReview(guild, message.author.id, session.answers);
+    } else if (session.type === "admin") {
+      await submitAdminToReview(guild, message.author.id, session.answers);
+    } else if (session.type === "gang") {
+      await submitGangToReview(guild, message.author.id, session.gangId, session.answers);
+    }
+
+    await message.channel.send("✅ تم إرسال التقديم للمراجعة بنجاح.").catch(() => {});
+    endSession(message.author.id);
+  } catch (err) {
+    console.log("DM flow error:", err?.message || err);
+  }
+});
 
 // ======================================================
 // INTERACTIONS
 // ======================================================
 client.on("interactionCreate", async (interaction) => {
   try {
-    // ================= SELECT MENU =================
+    // ================= SELECT MENUS =================
     if (interaction.isStringSelectMenu()) {
       if (interaction.customId === "ticket_select") {
-        const type = interaction.values[0];
-        if (type === "closed") {
-          return replyEphemeral(interaction, "⚠️ جميع الخدمات مغلقة حاليًا.");
+        const val = interaction.values[0];
+
+        if (["support", "appeal", "report", "suggest"].includes(val)) {
+          return createTicket(interaction, val);
         }
 
-        if (type === "ai_help") {
-          return openAiProblemModal(interaction, "ar");
-        }
-
-        if (type === "creator_apply") {
-          if (!settings.creatorApply) {
-            return replyEphemeral(interaction, "⚠️ تقديم صانع المحتوى مغلق حاليًا.");
-          }
-
-          const result = await startDmFlow(interaction.user, interaction.guild, "creator");
-          if (!result.ok) {
-            if (result.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
-            if (result.reason === "dm_closed") return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
+        if (val === "creator_apply") {
+          const res = await startDmFlow(interaction.user, interaction.guild, "creator");
+          if (!res.ok) {
+            if (res.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم جارٍ بالفعل.");
+            if (res.reason === "dm_closed") return replyEphemeral(interaction, "❌ الخاص مغلق. افتح الـ DM أولًا.");
             return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
           }
-
-          return replyEphemeral(interaction, "✅ تم إرسال نموذج صانع المحتوى إلى الخاص (DM).");
+          return replyEphemeral(interaction, "✅ تم إرسال الأسئلة في الخاص.");
         }
 
-        if (type === "admin_apply") {
-          if (!settings.adminApply) {
-            return replyEphemeral(interaction, "⚠️ تقديم الإدارة مغلق حاليًا.");
-          }
-
-          const result = await startDmFlow(interaction.user, interaction.guild, "admin");
-          if (!result.ok) {
-            if (result.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم مفتوح بالفعل، أكمله أولًا.");
-            if (result.reason === "dm_closed") return replyEphemeral(interaction, "❌ لا يمكن إرسال النموذج لك. افتح الخاص (DM) ثم أعد المحاولة.");
+        if (val === "admin_apply") {
+          const res = await startDmFlow(interaction.user, interaction.guild, "admin");
+          if (!res.ok) {
+            if (res.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم جارٍ بالفعل.");
+            if (res.reason === "dm_closed") return replyEphemeral(interaction, "❌ الخاص مغلق. افتح الـ DM أولًا.");
             return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
           }
-
-          return replyEphemeral(interaction, "✅ تم إرسال نموذج الإدارة إلى الخاص (DM).");
+          return replyEphemeral(interaction, "✅ تم إرسال الأسئلة في الخاص.");
         }
 
-        return createTicket(interaction, type);
+        if (val === "ai_help") {
+          return interaction.showModal(
+            new ModalBuilder()
+              .setCustomId("modal_ai_help")
+              .setTitle("AI Help")
+              .addComponents(
+                new ActionRowBuilder().addComponents(
+                  new TextInputBuilder()
+                    .setCustomId("problem")
+                    .setLabel("اكتب المشكلة")
+                    .setStyle(TextInputStyle.Paragraph)
+                    .setRequired(true)
+                )
+              )
+          );
+        }
       }
 
       if (interaction.customId === "gang_manage_select") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
-
         const value = interaction.values[0];
-        if (value === "gang_none") {
-          return replyEphemeral(interaction, "⚠️ لا توجد عصابات.");
-        }
+        if (value === "gang_none") return replyEphemeral(interaction, "لا توجد عصابات.");
 
         const gangId = value.replace("gang_manage_", "");
         const gang = getGangById(gangId);
@@ -2163,1094 +1866,503 @@ client.on("interactionCreate", async (interaction) => {
           .setColor(0x111111)
           .setTitle(`⚙️ إدارة عصابة ${gang.name}`)
           .setDescription(
-            `**الحالة:** ${gang.open ? "🟢 مفتوح" : "🔴 مغلق"}\n` +
-            `**الأعضاء:** ${currentGangCount(gang)}/${gang.limit || 0}\n` +
-            `**روم المراجعة:** ${gang.reviewRoomId ? `<#${gang.reviewRoomId}>` : "غير موجود"}\n` +
-            `**الرول:** ${gang.roleId ? `<@&${gang.roleId}>` : "لا يوجد"}\n` +
-            `**السيرفر الخارجي:** ${gang.externalGuildId || "لا يوجد"}`
-          )
-          .setFooter({ text: `gang:${gang.id}` });
+            `• الحالة: ${gang.open ? "🟢 مفتوح" : "🔴 مغلق"}\n` +
+            `• الأعضاء: ${currentGangCount(gang)}/${gang.limit || 0}\n` +
+            `• Review Room ID: ${gang.reviewRoomId || "-"}\n` +
+            `• Role ID: ${gang.roleId || "-"}`
+          );
 
         const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`toggle_gang_${gang.id}`)
-            .setLabel(gang.open ? "🔒 قفل التقديم" : "🟢 فتح التقديم")
-            .setStyle(gang.open ? ButtonStyle.Danger : ButtonStyle.Success),
-          new ButtonBuilder()
-            .setCustomId(`edit_gang_${gang.id}`)
-            .setLabel("✏️ تعديل")
-            .setStyle(ButtonStyle.Primary),
-          new ButtonBuilder()
-            .setCustomId(`delete_gang_${gang.id}`)
-            .setLabel("🗑️ حذف")
-            .setStyle(ButtonStyle.Danger)
+          new ButtonBuilder().setCustomId(`gang_toggle_${gang.id}`).setLabel(gang.open ? "🔒 قفل" : "🔓 فتح").setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder().setCustomId(`gang_delete_${gang.id}`).setLabel("🗑️ حذف").setStyle(ButtonStyle.Danger)
         );
 
-        return interaction.reply({
-          embeds: [embed],
-          components: [row],
-          flags: MessageFlags.Ephemeral,
-        });
+        return interaction.reply({ embeds: [embed], components: [row], flags: MessageFlags.Ephemeral }).catch(() => {});
       }
     }
 
     // ================= BUTTONS =================
     if (interaction.isButton()) {
-      const { customId } = interaction;
+      const member = interaction.member;
 
-      // ===== HELP CENTER =====
-      if (customId === "help_ar") return openAiProblemModal(interaction, "ar");
-      if (customId === "help_en") return openAiProblemModal(interaction, "en");
-      if (customId === "help_ai") return openAiProblemModal(interaction, "ar");
-
-      // ===== CONTROL =====
-      if (customId.startsWith("toggle_") && !customId.startsWith("toggle_gang_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ هذا الإجراء مخصص لفريق الإدارة فقط.");
+      // ---------- public buttons ----------
+      if (interaction.customId === "start_rp_apply") {
+        const res = await startDmFlow(interaction.user, interaction.guild, "rp");
+        if (!res.ok) {
+          if (res.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم جارٍ بالفعل.");
+          if (res.reason === "final_reject") return replyEphemeral(interaction, "⛔ تم رفضك نهائيًا من قبل.");
+          if (res.reason === "already_accepted") return replyEphemeral(interaction, "✅ أنت مقبول بالفعل.");
+          if (res.reason === "dm_closed") return replyEphemeral(interaction, "❌ الخاص مغلق. افتح الـ DM أولًا.");
+          return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
         }
-
-        const map = {
-          toggle_rpApply: "rpApply",
-          toggle_support: "support",
-          toggle_appeal: "appeal",
-          toggle_report: "report",
-          toggle_suggest: "suggest",
-          toggle_feedback: "feedback",
-          toggle_adminApply: "adminApply",
-          toggle_creatorApply: "creatorApply",
-          toggle_creatorRegistry: "creatorRegistry",
-          toggle_gangSystem: "gangSystem",
-        };
-
-        const key = map[customId];
-        if (!key) return;
-
-        settings[key] = !settings[key];
-        saveSettings();
-
-        const payload = await buildControlPanelPayload();
-        await interaction.update(payload).catch(() => {});
-
-        for (const [, guild] of client.guilds.cache) {
-          await ensurePanels(guild).catch(() => {});
-        }
-        return;
+        return replyEphemeral(interaction, "✅ تم إرسال الأسئلة في الخاص.");
       }
 
-      if (customId === "manual_add_creator") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
-        return openManualCreatorModal(interaction);
-      }
-
-      if (customId === "create_gang") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
-        return openCreateGangModal(interaction);
-      }
-
-      if (customId === "manage_gangs") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
-
-        const row = new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId("gang_manage_select")
-            .setPlaceholder("اختر العصابة التي تريد إدارتها")
-            .addOptions(buildGangControlSelectOptions())
-        );
-
+      if (interaction.customId === "open_feedback") {
         return interaction.reply({
-          content: "اختر العصابة:",
-          components: [row],
+          content: "💛 لو حابب ابعت تقييمك في روم التقييمات أو من خلال التذاكر.",
           flags: MessageFlags.Ephemeral,
         });
       }
 
-      if (customId === "remove_gang_member") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-        return openRemoveGangMemberModal(interaction);
+      if (interaction.customId === "help_ar") {
+        return replyEphemeral(interaction, "استخدم AI واكتب المشكلة أو افتح تذكرة دعم.");
+      }
+      if (interaction.customId === "help_en") {
+        return replyEphemeral(interaction, "Use AI or open a support ticket.");
+      }
+      if (interaction.customId === "help_ai") {
+        return interaction.showModal(
+          new ModalBuilder()
+            .setCustomId("modal_ai_help")
+            .setTitle("AI Help")
+            .addComponents(
+              new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                  .setCustomId("problem")
+                  .setLabel("اكتب المشكلة")
+                  .setStyle(TextInputStyle.Paragraph)
+                  .setRequired(true)
+              )
+            )
+        );
       }
 
-      if (customId.startsWith("toggle_gang_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
+      if (interaction.customId.startsWith("apply_gang_")) {
+        const gangId = interaction.customId.replace("apply_gang_", "");
+        const res = await startDmFlow(interaction.user, interaction.guild, "gang", { gangId });
+        if (!res.ok) {
+          if (res.reason === "active") return replyEphemeral(interaction, "⚠️ لديك تقديم جارٍ بالفعل.");
+          if (res.reason === "gangs_off") return replyEphemeral(interaction, "❌ نظام العصابات مغلق.");
+          if (res.reason === "gang_not_found") return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+          if (res.reason === "gang_closed") return replyEphemeral(interaction, "🔒 العصابة مغلقة.");
+          if (res.reason === "already_in_any_gang") return replyEphemeral(interaction, "⚠️ أنت بالفعل في عصابة.");
+          if (res.reason === "gang_full") return replyEphemeral(interaction, "⚠️ العصابة ممتلئة.");
+          if (res.reason === "dm_closed") return replyEphemeral(interaction, "❌ الخاص مغلق. افتح الـ DM أولًا.");
+          return replyEphemeral(interaction, "❌ تعذر بدء التقديم.");
+        }
+        return replyEphemeral(interaction, "✅ تم إرسال الأسئلة في الخاص.");
+      }
 
-        const gangId = customId.replace("toggle_gang_", "");
+      // ---------- admin only ----------
+      if (
+        [
+          "ticket_claim",
+          "ticket_close_reason",
+          "manual_add_creator",
+          "create_gang",
+          "manage_gangs",
+          "remove_gang_member",
+        ].includes(interaction.customId) ||
+        interaction.customId.startsWith("toggle_") ||
+        interaction.customId.startsWith("approve_") ||
+        interaction.customId.startsWith("reject_") ||
+        interaction.customId.startsWith("accept_gang_") ||
+        interaction.customId.startsWith("reject_gang_") ||
+        interaction.customId.startsWith("gang_toggle_") ||
+        interaction.customId.startsWith("gang_delete_")
+      ) {
+        if (!isAdmin(member)) {
+          return replyEphemeral(interaction, "❌ هذا الزر للإدارة فقط.");
+        }
+      }
+
+      // ---------- ticket buttons ----------
+      if (interaction.customId === "ticket_claim") {
+        const info = parseTicketTopic(interaction.channel.topic);
+        const nextTopic = ticketTopic(info.owner, info.type, interaction.user.id);
+        await interaction.channel.setTopic(nextTopic).catch(() => {});
+        await interaction.channel.setName(`claimed-${interaction.channel.name}`.slice(0, 95)).catch(() => {});
+        return replyEphemeral(interaction, "📌 تم استلام التذكرة.");
+      }
+
+      if (interaction.customId === "ticket_close_reason") {
+        return interaction.showModal(buildCloseTicketModal());
+      }
+
+      // ---------- control toggles ----------
+      if (interaction.customId.startsWith("toggle_")) {
+        const key = interaction.customId.replace("toggle_", "");
+        if (!(key in settings)) return replyEphemeral(interaction, "❌ مفتاح غير صحيح.");
+
+        settings[key] = !settings[key];
+        saveSettings();
+
+        await ensurePanels(interaction.guild).catch(() => {});
+        return replyEphemeral(interaction, `✅ تم تحديث ${key} إلى ${settings[key] ? "ON" : "OFF"}.`);
+      }
+
+      if (interaction.customId === "manual_add_creator") {
+        return interaction.showModal(buildManualCreatorModal());
+      }
+
+      if (interaction.customId === "create_gang") {
+        return interaction.showModal(buildCreateGangModal());
+      }
+
+      if (interaction.customId === "manage_gangs") {
+        const options = buildGangControlSelectOptions();
+        return interaction.reply({
+          content: "اختر العصابة التي تريد إدارتها:",
+          components: [
+            new ActionRowBuilder().addComponents(
+              new StringSelectMenuBuilder()
+                .setCustomId("gang_manage_select")
+                .setPlaceholder("اختر العصابة")
+                .addOptions(options)
+            ),
+          ],
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      if (interaction.customId === "remove_gang_member") {
+        return interaction.showModal(buildKickGangMemberModal());
+      }
+
+      if (interaction.customId.startsWith("gang_toggle_")) {
+        const gangId = interaction.customId.replace("gang_toggle_", "");
         const gang = getGangById(gangId);
         if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
 
         gang.open = !gang.open;
         saveGangs();
-
         await updateGangsPanel(interaction.guild).catch(() => {});
-
-        return interaction.update({
-          embeds: [
-            new EmbedBuilder()
-              .setColor(0x111111)
-              .setTitle(`⚙️ إدارة عصابة ${gang.name}`)
-              .setDescription(
-                `**الحالة:** ${gang.open ? "🟢 مفتوح" : "🔴 مغلق"}\n` +
-                `**الأعضاء:** ${currentGangCount(gang)}/${gang.limit || 0}\n` +
-                `**روم المراجعة:** ${gang.reviewRoomId ? `<#${gang.reviewRoomId}>` : "غير موجود"}\n` +
-                `**الرول:** ${gang.roleId ? `<@&${gang.roleId}>` : "لا يوجد"}\n` +
-                `**السيرفر الخارجي:** ${gang.externalGuildId || "لا يوجد"}`
-              )
-              .setFooter({ text: `gang:${gang.id}` })
-          ],
-          components: [
-            new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                .setCustomId(`toggle_gang_${gang.id}`)
-                .setLabel(gang.open ? "🔒 قفل التقديم" : "🟢 فتح التقديم")
-                .setStyle(gang.open ? ButtonStyle.Danger : ButtonStyle.Success),
-              new ButtonBuilder()
-                .setCustomId(`edit_gang_${gang.id}`)
-                .setLabel("✏️ تعديل")
-                .setStyle(ButtonStyle.Primary),
-              new ButtonBuilder()
-                .setCustomId(`delete_gang_${gang.id}`)
-                .setLabel("🗑️ حذف")
-                .setStyle(ButtonStyle.Danger)
-            )
-          ],
-        });
+        return replyEphemeral(interaction, `✅ تم ${gang.open ? "فتح" : "قفل"} العصابة.`);
       }
 
-      if (customId.startsWith("edit_gang_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
-        const gangId = customId.replace("edit_gang_", "");
-        return openGangEditModal(interaction, gangId);
-      }
-
-      if (customId.startsWith("delete_gang_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
-
-        const gangId = customId.replace("delete_gang_", "");
+      if (interaction.customId.startsWith("gang_delete_")) {
+        const gangId = interaction.customId.replace("gang_delete_", "");
         const gang = getGangById(gangId);
         if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
 
-        await tryDeleteGangReviewChannel(interaction.guild, gang.reviewRoomId);
-
-        gangs = gangs.filter((g) => String(g.id) !== String(gangId));
+        gangs = gangs.filter((g) => g.id !== gangId);
         saveGangs();
+        await tryDeleteGangReviewChannel(interaction.guild, gang.reviewRoomId).catch(() => {});
         await updateGangsPanel(interaction.guild).catch(() => {});
-
-        return interaction.update({
-          content: `✅ تم حذف العصابة **${gang.name}** وروم المراجعة الخاص بها.`,
-          embeds: [],
-          components: [],
-        });
+        return replyEphemeral(interaction, `✅ تم حذف عصابة ${gang.name}.`);
       }
 
-      // ===== FEEDBACK SERVER =====
-      if (customId === "open_feedback") {
-        if (!settings.feedback) return replyEphemeral(interaction, "⚠️ التقييم مغلق حاليًا.");
-        if (feedbackUsers.has(interaction.user.id)) return replyEphemeral(interaction, "❌ لقد قمت بتقييم السيرفر بالفعل.");
-
-        const row = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId("feedback_5").setLabel("⭐⭐⭐⭐⭐").setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId("feedback_4").setLabel("⭐⭐⭐⭐").setStyle(ButtonStyle.Primary),
-          new ButtonBuilder().setCustomId("feedback_3").setLabel("⭐⭐⭐").setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId("feedback_2").setLabel("⭐⭐").setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder().setCustomId("feedback_1").setLabel("⭐").setStyle(ButtonStyle.Danger)
-        );
-
-        return interaction.reply({
-          embeds: [ticketRatingRequestEmbed("Server Feedback")],
-          components: [row],
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      if (customId.startsWith("feedback_")) {
-        const stars = customId.split("_")[1];
-        return openFeedbackReasonModal(interaction, stars);
-      }
-
-      // ===== SELF CREATOR REGISTRY =====
-      if (customId === "add_creator_link") {
-        if (!settings.creatorRegistry) return replyEphemeral(interaction, "⚠️ تسجيل صناع المحتوى مغلق حاليًا.");
-        return openCreatorLinkModal(interaction);
-      }
-
-      // ===== RP APPLY =====
-      if (customId === "start_rp_apply") {
-        if (!settings.rpApply) {
-          return replyEphemeral(interaction, "⚠️ التقديم مغلق حاليًا.");
+      // ---------- review approve/reject ----------
+      if (interaction.customId.startsWith("approve_rp_")) {
+        const userId = interaction.customId.replace("approve_rp_", "");
+        const memberTarget = await interaction.guild.members.fetch(userId).catch(() => null);
+        if (memberTarget) {
+          await memberTarget.roles.add(RP_PASS_ROLE_ID).catch(() => {});
+          const payload = rpAcceptEmbed(interaction.guild.id);
+          await memberTarget.send({ embeds: [payload.embed], components: [payload.row] }).catch(() => {});
         }
 
-        const result = await startDmFlow(interaction.user, interaction.guild, "rp");
-        if (!result.ok) {
-          if (result.reason === "active") return replyEphemeral(interaction, "⚠️ عندك تقديم مفتوح.");
-          if (result.reason === "dm_closed") return replyEphemeral(interaction, "❌ افتح الخاص.");
-          if (result.reason === "final_reject") return replyEphemeral(interaction, "⛔ تم رفض طلبك نهائيًا.");
-          if (result.reason === "already_accepted") return replyEphemeral(interaction, "✅ أنت مقبول بالفعل.");
-          return replyEphemeral(interaction, "❌ فشل.");
-        }
-
-        return replyEphemeral(interaction, "✅ تم إرسال التقديم في الخاص.");
-      }
-
-      // ===== GANG APPLY =====
-      if (customId.startsWith("apply_gang_")) {
-        const gangId = customId.replace("apply_gang_", "");
-        const result = await startDmFlow(interaction.user, interaction.guild, "gang", { gangId });
-
-        if (!result.ok) {
-          if (result.reason === "already_in_any_gang")
-            return replyEphemeral(interaction, "❌ انت بالفعل في عصابة.");
-          if (result.reason === "gang_full")
-            return replyEphemeral(interaction, "❌ العصابة فل.");
-          if (result.reason === "gang_closed")
-            return replyEphemeral(interaction, "❌ التقديم على العصابة مقفول.");
-          if (result.reason === "active")
-            return replyEphemeral(interaction, "⚠️ عندك تقديم مفتوح.");
-          if (result.reason === "dm_closed")
-            return replyEphemeral(interaction, "❌ افتح الخاص.");
-          return replyEphemeral(interaction, "❌ فشل.");
-        }
-
-        return replyEphemeral(interaction, "✅ تم بدء التقديم في الخاص.");
-      }
-
-      // ===== TICKET =====
-      if (customId === "ticket_claim") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع استلام التذكرة.");
-        }
-
-        const info = parseTicketTopic(interaction.channel.topic);
-        if (!info.owner) return replyEphemeral(interaction, "❌ بيانات التذكرة ناقصة.");
-        if (info.claimedBy && info.claimedBy !== "none") {
-          return replyEphemeral(interaction, "⚠️ التذكرة مستلمة بالفعل.");
-        }
-
-        await interaction.channel.setTopic(ticketTopic(info.owner, info.type, interaction.user.id)).catch(() => {});
-        return interaction.reply({ content: "📌 تم استلام التذكرة", flags: MessageFlags.Ephemeral });
-      }
-
-      if (customId === "ticket_close_reason") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع إغلاق التذكرة.");
-        }
-        return openTicketCloseReasonModal(interaction);
-      }
-
-      // ===== REVIEW BUTTONS =====
-      if (customId.startsWith("approve_rp_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-
-        const userId = customId.split("_")[2];
-        const target = await interaction.guild.members.fetch(userId).catch(() => null);
-        if (!target) return replyEphemeral(interaction, "❌ العضو غير موجود.");
-
-        await target.roles.remove(RP_REJECT1_ROLE_ID).catch(() => {});
-        await target.roles.remove(RP_REJECT2_ROLE_ID).catch(() => {});
-        await target.roles.add(RP_PASS_ROLE_ID).catch(() => {});
-
-        try {
-          const { embed, row } = rpAcceptEmbed(interaction.guild.id);
-          await target.send({ embeds: [embed], components: [row] });
-        } catch {}
-
-        return interaction.update({
-          content: `✅ تم قبول التقديم بواسطة ${interaction.user}.`,
-          components: disableMessageComponents(interaction.message),
-        });
-      }
-
-      if (customId.startsWith("reject_rp_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-        const userId = customId.split("_")[2];
-        return openRejectModal(interaction, "rp", userId);
-      }
-
-      if (customId.startsWith("approve_creator_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-
-        const userId = customId.split("_")[2];
-        const target = await interaction.guild.members.fetch(userId).catch(() => null);
-        if (!target) return replyEphemeral(interaction, "❌ العضو غير موجود.");
-
-        await target.roles.add(CREATOR_ROLE_ID).catch(() => {});
-
-        const fields = interaction.message?.embeds?.[0]?.fields || [];
-        const answersMap = {};
-        for (const q of CREATOR_QUESTIONS) {
-          const found = fields.find((f) => f.name === q.q.slice(0, 256));
-          if (found) answersMap[q.key] = found.value;
-        }
-
-        const parsed = parseCreatorLink(answersMap.channelLink || "");
-        addOrUpdateCreator({
-          userId,
-          name: parsed?.name || target.user.username,
-          platform: parsed?.platform || "Unknown",
-          link: answersMap.channelLink || "",
-          followers: answersMap.followers || 0,
-          avgViews: answersMap.avgViews || 0,
-        });
-
-        await updateCreatorBoard(interaction.guild).catch(() => {});
-
-        try {
-          await target.send({ embeds: [creatorAcceptEmbed()] });
-        } catch {}
-
-        return interaction.update({
-          content: `✅ تم قبول طلب صانع المحتوى بواسطة ${interaction.user}.`,
-          components: disableMessageComponents(interaction.message),
-        });
-      }
-
-      if (customId.startsWith("reject_creator_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-        const userId = customId.split("_")[2];
-        return openRejectModal(interaction, "creator", userId);
-      }
-
-      if (customId.startsWith("approve_admin_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-
-        const userId = customId.split("_")[2];
-        const target = await interaction.guild.members.fetch(userId).catch(() => null);
-        if (!target) return replyEphemeral(interaction, "❌ العضو غير موجود.");
-
-        await target.roles.add(ADMIN_ACCEPT_ROLE_ID).catch(() => {});
-        try {
-          await target.send({ embeds: [adminAcceptEmbed()] });
-        } catch {}
-
-        return interaction.update({
-          content: `✅ تم قبول طلب الإدارة بواسطة ${interaction.user}.`,
-          components: disableMessageComponents(interaction.message),
-        });
-      }
-
-      if (customId.startsWith("reject_admin_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-        const userId = customId.split("_")[2];
-        return openRejectModal(interaction, "admin", userId);
-      }
-
-      // ===== GANG ACCEPT / REJECT =====
-      if (customId.startsWith("accept_gang_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-        const [, , gangId, userId] = customId.split("_");
-        return openGangAcceptModal(interaction, gangId, userId);
-      }
-
-      if (customId.startsWith("reject_gang_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-        const [, , gangId, userId] = customId.split("_");
-        return openRejectModal(interaction, "gang", userId, gangId);
-      }
-
-      // ===== TICKET RATE BUTTONS =====
-      if (customId.startsWith("ticket_rate_")) {
-        const parts = customId.split("_");
-        const channelId = parts[2];
-        const stars = parts[3];
-
-        if (!ticketRatings[channelId]) {
-          ticketRatings[channelId] = { ratedUsers: [], ratings: [] };
-        }
-
-        if (ticketRatings[channelId].ratedUsers.includes(interaction.user.id)) {
-          return replyEphemeral(interaction, "❌ لقد قمت بتقييم هذه التذكرة بالفعل.");
-        }
-
-        return openTicketRatingReasonModal(interaction, channelId, stars);
-      }
-    }
-
-    // ================= MODAL SUBMIT =================
-    if (interaction.isModalSubmit()) {
-      const id = interaction.customId;
-
-      // ===== AI HELP =====
-      if (id === "modal_ai_help_ar" || id === "modal_ai_help_en") {
-        const lang = id.endsWith("_en") ? "en" : "ar";
-        const problem = interaction.fields.getTextInputValue("problem");
-        const reply = getAiReply(problem, lang);
-
-        await sendHelpLog(interaction.guild, interaction.user.id, lang, problem);
-
-        return interaction.reply({
-          content: reply,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      // ===== FEEDBACK =====
-      if (id.startsWith("modal_feedback_")) {
-        const stars = id.split("_")[2];
-        const reason = interaction.fields.getTextInputValue("reason");
-
-        if (feedbackUsers.has(interaction.user.id)) {
-          return replyEphemeral(interaction, "❌ لقد قمت بتقييم السيرفر بالفعل.");
-        }
-
-        feedbackUsers.add(interaction.user.id);
-        saveFeedbackUsers();
-
-        const ch = await interaction.guild.channels.fetch(FEEDBACK_CHANNEL_ID).catch(() => null);
-        if (ch?.isTextBased()) {
-          await ch.send({
-            embeds: [
-              new EmbedBuilder()
-                .setTitle("⭐ تقييم جديد")
-                .setDescription(`<@${interaction.user.id}>\n${stars} نجوم\n\n${safeTrim(reason, 1900)}`)
-                .setColor(0xffd54f),
-            ],
-          }).catch(() => {});
-        }
-
-        return interaction.reply({ content: "✅ تم إرسال تقييمك", flags: MessageFlags.Ephemeral });
-      }
-
-      // ===== TICKET CLOSE =====
-      if (id.startsWith("modal_ticket_close_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع إغلاق التذكرة.");
-        }
-
-        const reason = interaction.fields.getTextInputValue("reason");
-        const channel = interaction.channel;
-        const ownerMember = await getTicketOwnerMember(channel);
-
-        const transcriptPath = await createTranscriptFile(channel).catch(() => null);
-
-        if (transcriptPath) {
-          const transcriptAttachment = new AttachmentBuilder(transcriptPath);
-          await channel.send({
-            content: "📄 Transcript التذكرة قبل الإغلاق:",
-            files: [transcriptAttachment],
-          }).catch(() => {});
-        }
-
-        if (ownerMember) {
-          try {
-            const files = transcriptPath ? [new AttachmentBuilder(transcriptPath)] : [];
-            await ownerMember.send({
-              embeds: [ticketClosedDmEmbed(reason, channel.name)],
-              files,
-            });
-
-            await ownerMember.send({
-              embeds: [ticketRatingRequestEmbed(channel.name)],
-              components: [buildTicketRatingRow(channel.id)],
-            });
-          } catch {}
-        }
-
-        await interaction.reply({
-          content: "✅ تم إرسال السبب و Transcript إلى العضو، وسيتم إغلاق التذكرة خلال لحظات.",
-          flags: MessageFlags.Ephemeral,
-        }).catch(() => {});
-
-        setTimeout(async () => {
-          await channel.delete().catch(() => {});
-          if (transcriptPath && fs.existsSync(transcriptPath)) {
-            fs.unlinkSync(transcriptPath);
-          }
-        }, 3000);
-
+        await interaction.update({ components: disableMessageRows(interaction.message) }).catch(() => {});
         return;
       }
 
-      // ===== TICKET RATING =====
-      if (id.startsWith("modal_ticket_rating_")) {
-        const parts = id.split("_");
-        const channelId = parts[3];
-        const stars = parts[4];
-        const reason = interaction.fields.getTextInputValue("reason");
-
-        if (!ticketRatings[channelId]) {
-          ticketRatings[channelId] = { ratedUsers: [], ratings: [] };
-        }
-
-        if (ticketRatings[channelId].ratedUsers.includes(interaction.user.id)) {
-          return replyEphemeral(interaction, "❌ لقد قمت بتقييم هذه التذكرة بالفعل.");
-        }
-
-        ticketRatings[channelId].ratedUsers.push(interaction.user.id);
-        ticketRatings[channelId].ratings.push({
-          userId: interaction.user.id,
-          stars: Number(stars),
-          reason: safeTrim(reason, 2000),
-          at: new Date().toISOString(),
-        });
-        saveTicketRatings();
-
-        const ch = await interaction.client.channels.fetch(FEEDBACK_CHANNEL_ID).catch(() => null);
-        if (ch?.isTextBased()) {
-          const embed = new EmbedBuilder()
-            .setColor(0xffd54f)
-            .setTitle("⭐ تقييم جديد للتذكرة")
-            .addFields(
-              { name: "العضو", value: `<@${interaction.user.id}>`, inline: true },
-              { name: "رقم التذكرة", value: channelId, inline: true },
-              { name: "عدد النجوم", value: `${stars}`, inline: true },
-              { name: "السبب", value: safeTrim(reason, 1024), inline: false }
-            )
-            .setFooter({ text: "Night City RP • Ticket Rating" })
-            .setTimestamp();
-
-          await ch.send({ embeds: [embed] }).catch(() => {});
-        }
-
-        return interaction.reply({
-          content: "✅ شكرًا لك، تم إرسال تقييم التذكرة بنجاح.",
-          flags: MessageFlags.Ephemeral,
-        });
+      if (interaction.customId.startsWith("reject_rp_")) {
+        const userId = interaction.customId.replace("reject_rp_", "");
+        return interaction.showModal(buildRejectReasonModal(`modal_reject_rp_${userId}`, "رفض طلب السيرفر"));
       }
 
-      // ===== SELF CREATOR LINK REGISTRY =====
-      if (id === "modal_add_creator_link") {
-        if (!settings.creatorRegistry) {
-          return replyEphemeral(interaction, "⚠️ تسجيل صناع المحتوى مغلق حاليًا.");
+      if (interaction.customId.startsWith("approve_creator_")) {
+        const userId = interaction.customId.replace("approve_creator_", "");
+        const memberTarget = await interaction.guild.members.fetch(userId).catch(() => null);
+
+        const embed = interaction.message.embeds?.[0];
+        const answers = {};
+        for (const f of embed?.fields || []) {
+          answers[f.name] = f.value;
         }
 
-        const link = interaction.fields.getTextInputValue("link");
-        const followers = interaction.fields.getTextInputValue("followers");
-        const avgViews = interaction.fields.getTextInputValue("avgViews");
-
-        const parsed = parseCreatorLink(link);
-        if (!parsed) {
-          return interaction.reply({
-            content: "❌ الرابط غير مدعوم حاليًا. جرّب Twitch أو Kick أو YouTube أو TikTok.",
-            flags: MessageFlags.Ephemeral,
-          });
+        if (memberTarget) {
+          await memberTarget.roles.add(CREATOR_ROLE_ID).catch(() => {});
+          await memberTarget.send({ embeds: [creatorAcceptEmbed()] }).catch(() => {});
         }
 
-        const apiData = await tryAutoFetchCreatorStats(parsed).catch(() => null);
-
-        addOrUpdateCreator({
-          userId: interaction.user.id,
-          name: parsed.name,
-          platform: parsed.platform,
-          link: parsed.link,
-          followers: apiData?.followers ?? followers,
-          avgViews: apiData?.avgViews ?? avgViews,
-        });
-
-        const boardChannel = await interaction.guild.channels.fetch(CREATOR_BOARD_CHANNEL_ID).catch(() => null);
-        if (boardChannel?.isTextBased()) {
-          await boardChannel.send({
-            embeds: [
-              creatorRegistryEmbed(
-                {
-                  ...parsed,
-                  followers: apiData?.followers ?? followers,
-                  avgViews: apiData?.avgViews ?? avgViews,
-                },
-                interaction.user.id
-              ),
-            ],
-          }).catch(() => {});
-        }
-
-        await updateCreatorBoard(interaction.guild).catch(() => {});
-
-        return interaction.reply({
-          content:
-            `✅ تم حفظ بياناتك بنجاح.\n` +
-            `المنصة: ${parsed.platform}\n` +
-            `الاسم المستخرج: ${parsed.name}\n` +
-            `المتابعين: ${formatNum(apiData?.followers ?? followers)}\n` +
-            `متوسط المشاهدات: ${formatNum(apiData?.avgViews ?? avgViews)}`,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      // ===== MANUAL ADD / UPDATE CREATOR =====
-      if (id === "modal_manual_add_creator") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ هذا الإجراء مخصص للإدارة فقط.");
-        }
-
-        const userId = interaction.fields.getTextInputValue("userId").trim();
-        const name = interaction.fields.getTextInputValue("name");
-        const link = interaction.fields.getTextInputValue("link");
-        const followers = interaction.fields.getTextInputValue("followers");
-        const avgViews = interaction.fields.getTextInputValue("avgViews");
-
-        const parsed = parseCreatorLink(link);
+        const parsed = parseCreatorLink(
+          embed?.fields?.find((f) => f.name.includes("رابط"))?.value || ""
+        );
 
         addOrUpdateCreator({
           userId,
-          name: name || parsed?.name || "Unknown",
+          name: parsed?.name || "Unknown",
           platform: parsed?.platform || "Unknown",
-          link,
+          link: parsed?.link || "",
+          followers: 0,
+          avgViews: 0,
+        });
+
+        await updateCreatorBoard(interaction.guild).catch(() => {});
+        await interaction.update({ components: disableMessageRows(interaction.message) }).catch(() => {});
+        return;
+      }
+
+      if (interaction.customId.startsWith("reject_creator_")) {
+        const userId = interaction.customId.replace("reject_creator_", "");
+        return interaction.showModal(buildRejectReasonModal(`modal_reject_creator_${userId}`, "رفض صانع محتوى"));
+      }
+
+      if (interaction.customId.startsWith("approve_admin_")) {
+        const userId = interaction.customId.replace("approve_admin_", "");
+        const memberTarget = await interaction.guild.members.fetch(userId).catch(() => null);
+        if (memberTarget) {
+          await memberTarget.roles.add(ADMIN_ACCEPT_ROLE_ID).catch(() => {});
+          await memberTarget.send({ embeds: [adminAcceptEmbed()] }).catch(() => {});
+        }
+
+        await interaction.update({ components: disableMessageRows(interaction.message) }).catch(() => {});
+        return;
+      }
+
+      if (interaction.customId.startsWith("reject_admin_")) {
+        const userId = interaction.customId.replace("reject_admin_", "");
+        return interaction.showModal(buildRejectReasonModal(`modal_reject_admin_${userId}`, "رفض الإدارة"));
+      }
+
+      if (interaction.customId.startsWith("accept_gang_")) {
+        const [, , gangId, userId] = interaction.customId.split("_");
+        const gang = getGangById(gangId);
+        if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+
+        if (isGangFull(gang)) return replyEphemeral(interaction, "⚠️ العصابة ممتلئة.");
+
+        const target = await interaction.guild.members.fetch(userId).catch(() => null);
+        if (target) {
+          if (gang.roleId) {
+            await target.roles.add(gang.roleId).catch(() => {});
+          }
+          addGangMember(gang.id, userId);
+          await target.send({ embeds: [buildGangAcceptEmbed(gang, gang.inviteLink || "")] }).catch(() => {});
+        }
+
+        await updateGangsPanel(interaction.guild).catch(() => {});
+        await interaction.update({ components: disableMessageRows(interaction.message) }).catch(() => {});
+        return;
+      }
+
+      if (interaction.customId.startsWith("reject_gang_")) {
+        const [, , gangId, userId] = interaction.customId.split("_");
+        return interaction.showModal(buildRejectReasonModal(`modal_reject_gang_${gangId}_${userId}`, "رفض تقديم العصابة"));
+      }
+
+      // ---------- ticket ratings ----------
+      if (interaction.customId.startsWith("ticket_rate_")) {
+        const [, , channelId, stars] = interaction.customId.split("_");
+        ticketRatings[channelId] = { stars: Number(stars), userId: interaction.user.id, reason: "" };
+        saveTicketRatings();
+
+        const modal = new ModalBuilder()
+          .setCustomId(`modal_ticket_rate_${channelId}_${stars}`)
+          .setTitle("سبب التقييم")
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId("reason")
+                .setLabel("اكتب سبب التقييم")
+                .setStyle(TextInputStyle.Paragraph)
+                .setRequired(true)
+            )
+          );
+
+        return interaction.showModal(modal);
+      }
+    }
+
+    // ================= MODALS =================
+    if (interaction.isModalSubmit()) {
+      if (interaction.customId === "modal_close_ticket") {
+        const reason = interaction.fields.getTextInputValue("reason");
+        await interaction.reply({ content: "🔒 جاري إغلاق التذكرة...", flags: MessageFlags.Ephemeral }).catch(() => {});
+        await closeTicket(interaction.channel, interaction.user.id, reason);
+        return;
+      }
+
+      if (interaction.customId === "modal_manual_creator") {
+        const userId = safeTrim(interaction.fields.getTextInputValue("user_id"), 50);
+        const channelName = safeTrim(interaction.fields.getTextInputValue("channel_name"), 100);
+        const platform = safeTrim(interaction.fields.getTextInputValue("platform"), 50);
+        const followers = toNumberLoose(interaction.fields.getTextInputValue("followers"));
+        const avgViews = toNumberLoose(interaction.fields.getTextInputValue("avg_views"));
+
+        addOrUpdateCreator({
+          userId,
+          name: channelName,
+          platform,
+          link: "",
           followers,
           avgViews,
         });
 
         await updateCreatorBoard(interaction.guild).catch(() => {});
-
-        return interaction.reply({
-          content: `✅ تم إضافة / تعديل صانع المحتوى <@${userId}> بنجاح.`,
-          flags: MessageFlags.Ephemeral,
-        });
+        return replyEphemeral(interaction, "✅ تم تحديث بيانات صانع المحتوى.");
       }
 
-      // ===== CREATE GANG =====
-      if (id === "modal_create_gang") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-
-        const name = safeTrim(interaction.fields.getTextInputValue("name"), 80);
-        const limit = Number(interaction.fields.getTextInputValue("limit"));
-        const roleId = safeTrim(interaction.fields.getTextInputValue("roleId"), 100);
-        const externalGuildId = safeTrim(interaction.fields.getTextInputValue("externalGuildId"), 100);
-        const q1 = safeTrim(interaction.fields.getTextInputValue("q1"), 200);
-
-        if (!name) return replyEphemeral(interaction, "❌ اسم العصابة مطلوب.");
-        if (!Number.isFinite(limit) || limit < 1) return replyEphemeral(interaction, "❌ اكتب Limit صحيح.");
-
-        if (getGangByName(name)) {
-          return replyEphemeral(interaction, "❌ يوجد عصابة بنفس الاسم بالفعل.");
-        }
-
-        const reviewChannel = await createGangReviewChannel(interaction.guild, name).catch(() => null);
-        if (!reviewChannel) return replyEphemeral(interaction, "❌ فشل إنشاء روم مراجعة العصابة.");
-
-        const gang = normalizeGang({
-          id: Date.now(),
-          name,
-          limit,
-          roleId,
-          externalGuildId,
-          reviewRoomId: reviewChannel.id,
-          members: [],
-          questions: buildCustomGangQuestions(q1),
-        });
-
-        gangs.push(gang);
-        saveGangs();
-
-        await updateGangsPanel(interaction.guild).catch(() => {});
-
-        return interaction.reply({
-          content: `✅ تم إنشاء العصابة **${name}** مع روم مراجعة ${reviewChannel}.`,
-          flags: MessageFlags.Ephemeral,
-        });
+      if (interaction.customId === "modal_create_gang") {
+        return createGangFromModal(interaction, interaction.fields);
       }
 
-      // ===== EDIT GANG =====
-      if (id.startsWith("modal_edit_gang_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
+      if (interaction.customId === "modal_remove_gang_member") {
+        const userId = safeTrim(interaction.fields.getTextInputValue("user_id"), 50);
+        const gang = getGangOfUser(userId);
 
-        const gangId = id.replace("modal_edit_gang_", "");
-        const gang = getGangById(gangId);
-        if (!gang) return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+        if (!gang) return replyEphemeral(interaction, "❌ هذا المستخدم ليس في أي عصابة.");
 
-        const oldName = gang.name;
-        const name = safeTrim(interaction.fields.getTextInputValue("name"), 80);
-        const limit = Number(interaction.fields.getTextInputValue("limit"));
-        const roleId = safeTrim(interaction.fields.getTextInputValue("roleId"), 100);
-        const externalGuildId = safeTrim(interaction.fields.getTextInputValue("externalGuildId"), 100);
-        const q1 = safeTrim(interaction.fields.getTextInputValue("q1"), 200);
-
-        if (!name) return replyEphemeral(interaction, "❌ اسم العصابة مطلوب.");
-        if (!Number.isFinite(limit) || limit < 1) return replyEphemeral(interaction, "❌ اكتب Limit صحيح.");
-
-        const sameNameOtherGang = gangs.find((g) => String(g.id) !== String(gangId) && String(g.name).toLowerCase() === String(name).toLowerCase());
-        if (sameNameOtherGang) return replyEphemeral(interaction, "❌ يوجد عصابة أخرى بنفس الاسم.");
-
-        gang.name = name;
-        gang.limit = limit;
-        gang.roleId = roleId;
-        gang.externalGuildId = externalGuildId;
-        gang.questions = buildCustomGangQuestions(q1 || gang.questions?.[0]?.q || "");
-
-        saveGangs();
-        await tryRenameGangReviewChannel(interaction.guild, gang.reviewRoomId, name);
-        await updateGangsPanel(interaction.guild).catch(() => {});
-
-        return interaction.reply({
-          content: `✅ تم تعديل العصابة من **${oldName}** إلى **${name}**.`,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      // ===== REMOVE MEMBER FROM GANG =====
-      if (id === "modal_remove_gang_member") {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) return replyEphemeral(interaction, "❌ للإدارة فقط.");
-
-        const gangName = interaction.fields.getTextInputValue("gang");
-        const userId = interaction.fields.getTextInputValue("userId");
-
-        const gang = getGangByName(gangName);
-
-if (!gang) {
-  return interaction.reply({
-    content: "❌ العصابة غير موجودة",
-    flags: MessageFlags.Ephemeral,
-  });
-}
-
-const removed = removeGangMember(gang.id, userId);
-
-if (!removed) {
-  return interaction.reply({
-    content: "❌ فشل حذف العضو من العصابة",
-    flags: MessageFlags.Ephemeral,
-  });
-}
-
-await updateGangsPanel(interaction.guild).catch(() => {});
-
-return interaction.reply({
-  content: `✅ تم طرد اللاعب <@${userId}> من عصابة **${gang.name}**`,
-  flags: MessageFlags.Ephemeral,
-});
-
-      // ===== ACCEPT GANG MODAL =====
-      if (id.startsWith("modal_accept_gang_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ للإدارة فقط.");
-        }
-
-        const parts = id.split("_");
-        const gangId = parts[3];
-        const userId = parts[4];
-
-        const gang = getGangById(gangId);
-        if (!gang) {
-          return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
-        }
-
-        const target = await interaction.guild.members.fetch(userId).catch(() => null);
-        if (!target) {
-          return replyEphemeral(interaction, "❌ العضو غير موجود.");
-        }
-
-        if (userInAnyGang(userId)) {
-          return replyEphemeral(interaction, "❌ العضو موجود بالفعل في عصابة.");
-        }
-
-        if (isGangFull(gang)) {
-          return replyEphemeral(interaction, "❌ العصابة وصلت للحد الأقصى.");
-        }
-
-        const link = interaction.fields.getTextInputValue("link");
-
-        addGangMember(gang.id, userId);
+        removeGangMember(gang.id, userId);
 
         if (gang.roleId) {
-          await target.roles.add(gang.roleId).catch(() => {});
+          const memberTarget = await interaction.guild.members.fetch(userId).catch(() => null);
+          if (memberTarget) {
+            await memberTarget.roles.remove(gang.roleId).catch(() => {});
+          }
         }
-
-        try {
-          await target.send({ embeds: [buildGangAcceptEmbed(gang, link)] });
-        } catch {}
 
         await updateGangsPanel(interaction.guild).catch(() => {});
-
-        return interaction.reply({
-          content: `✅ تم قبول <@${userId}> في عصابة **${gang.name}**`,
-          flags: MessageFlags.Ephemeral,
-        });
+        return replyEphemeral(interaction, `✅ تم طرد المستخدم من عصابة ${gang.name}.`);
       }
 
-      // ===== REJECT MODALS =====
-      if (id.startsWith("modal_reject_gang_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ للإدارة فقط.");
+      if (interaction.customId === "modal_ai_help") {
+        const problem = interaction.fields.getTextInputValue("problem");
+        const reply = getAiReply(problem, "ar");
+        await notifyHelpChannel(interaction.guild, `🤖 AI Help from <@${interaction.user.id}>:\n${problem}`).catch(() => {});
+        return replyEphemeral(interaction, reply);
+      }
+
+      if (interaction.customId.startsWith("modal_reject_rp_")) {
+        const userId = interaction.customId.replace("modal_reject_rp_", "");
+        const reason = interaction.fields.getTextInputValue("reason");
+        const memberTarget = await interaction.guild.members.fetch(userId).catch(() => null);
+
+        if (memberTarget) {
+          await memberTarget.roles.add(RP_REJECT1_ROLE_ID).catch(() => {});
+          await memberTarget.send({ embeds: [rpRejectEmbed(reason, false)] }).catch(() => {});
         }
 
-        const parts = id.split("_");
+        return replyEphemeral(interaction, "✅ تم إرسال الرفض.");
+      }
+
+      if (interaction.customId.startsWith("modal_reject_creator_")) {
+        const userId = interaction.customId.replace("modal_reject_creator_", "");
+        const reason = interaction.fields.getTextInputValue("reason");
+        const memberTarget = await interaction.guild.members.fetch(userId).catch(() => null);
+
+        if (memberTarget) {
+          await memberTarget.send({ embeds: [creatorRejectEmbed(reason)] }).catch(() => {});
+        }
+
+        return replyEphemeral(interaction, "✅ تم إرسال الرفض.");
+      }
+
+      if (interaction.customId.startsWith("modal_reject_admin_")) {
+        const userId = interaction.customId.replace("modal_reject_admin_", "");
+        const reason = interaction.fields.getTextInputValue("reason");
+        const memberTarget = await interaction.guild.members.fetch(userId).catch(() => null);
+
+        if (memberTarget) {
+          await memberTarget.send({ embeds: [adminRejectEmbed(reason)] }).catch(() => {});
+        }
+
+        return replyEphemeral(interaction, "✅ تم إرسال الرفض.");
+      }
+
+      if (interaction.customId.startsWith("modal_reject_gang_")) {
+        const parts = interaction.customId.split("_");
         const gangId = parts[3];
         const userId = parts[4];
         const reason = interaction.fields.getTextInputValue("reason");
-
         const gang = getGangById(gangId);
-        if (!gang) {
-          return replyEphemeral(interaction, "❌ العصابة غير موجودة.");
+        const memberTarget = await interaction.guild.members.fetch(userId).catch(() => null);
+
+        if (memberTarget && gang) {
+          await memberTarget.send({ embeds: [buildGangRejectEmbed(gang.name, reason)] }).catch(() => {});
         }
 
-        const target = await interaction.guild.members.fetch(userId).catch(() => null);
-        if (target) {
-          try {
-            await target.send({ embeds: [buildGangRejectEmbed(gang.name, reason)] });
-          } catch {}
-        }
-
-        return interaction.reply({
-          content: `✅ تم رفض تقديم <@${userId}> في عصابة **${gang.name}**`,
-          flags: MessageFlags.Ephemeral,
-        });
+        return replyEphemeral(interaction, "✅ تم إرسال الرفض.");
       }
 
-      if (id.startsWith("modal_reject_rp_")) {
-        const userId = id.replace("modal_reject_rp_", "");
-        const reason = interaction.fields.getTextInputValue("reason");
-        const target = await interaction.guild.members.fetch(userId).catch(() => null);
-
-        if (target) {
-          try {
-            await target.send({ embeds: [rpRejectEmbed(reason)] });
-          } catch {}
-        }
-
-        return interaction.reply({
-          content: `✅ تم رفض تقديم السيرفر للعضو <@${userId}>`,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      if (id.startsWith("modal_reject_creator_")) {
-        const userId = id.replace("modal_reject_creator_", "");
-        const reason = interaction.fields.getTextInputValue("reason");
-        const target = await interaction.guild.members.fetch(userId).catch(() => null);
-
-        if (target) {
-          try {
-            await target.send({ embeds: [creatorRejectEmbed(reason)] });
-          } catch {}
-        }
-
-        return interaction.reply({
-          content: `✅ تم رفض تقديم صانع المحتوى للعضو <@${userId}>`,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      if (id.startsWith("modal_reject_admin_")) {
-        const userId = id.replace("modal_reject_admin_", "");
-        const reason = interaction.fields.getTextInputValue("reason");
-        const target = await interaction.guild.members.fetch(userId).catch(() => null);
-
-        if (target) {
-          try {
-            await target.send({ embeds: [adminRejectEmbed(reason)] });
-          } catch {}
-        }
-
-        return interaction.reply({
-          content: `✅ تم رفض تقديم الإدارة للعضو <@${userId}>`,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      // ===== AI HELP =====
-      if (id === "modal_ai_help_ar" || id === "modal_ai_help_en") {
-        const lang = id.endsWith("_en") ? "en" : "ar";
-        const problem = interaction.fields.getTextInputValue("problem");
-        const reply = getAiReply(problem, lang);
-
-        await sendHelpLog(interaction.guild, interaction.user.id, lang, problem).catch(() => {});
-
-        return interaction.reply({
-          content: reply,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-
-      // ===== CLOSE TICKET =====
-      if (id.startsWith("modal_ticket_close_")) {
-        const member = interaction.member;
-        if (!member || !isAdmin(member)) {
-          return replyEphemeral(interaction, "❌ فقط الإدارة تستطيع إغلاق التذكرة.");
-        }
-
-        const reason = interaction.fields.getTextInputValue("reason");
-        const channel = interaction.channel;
-        const ownerMember = await getTicketOwnerMember(channel);
-
-        const transcriptPath = await createTranscriptFile(channel).catch(() => null);
-
-        if (transcriptPath) {
-          const transcriptAttachment = new AttachmentBuilder(transcriptPath);
-          await channel.send({
-            content: "📄 Transcript التذكرة قبل الإغلاق:",
-            files: [transcriptAttachment],
-          }).catch(() => {});
-        }
-
-        if (ownerMember) {
-          try {
-            const files = transcriptPath ? [new AttachmentBuilder(transcriptPath)] : [];
-            await ownerMember.send({
-              embeds: [ticketClosedDmEmbed(reason, channel.name)],
-              files,
-            });
-
-            await ownerMember.send({
-              embeds: [ticketRatingRequestEmbed(channel.name)],
-              components: [buildTicketRatingRow(channel.id)],
-            });
-          } catch {}
-        }
-
-        await interaction.reply({
-          content: "✅ تم إغلاق التذكرة وإرسال الـ Transcript.",
-          flags: MessageFlags.Ephemeral,
-        }).catch(() => {});
-
-        setTimeout(async () => {
-          await channel.delete().catch(() => {});
-          if (transcriptPath && fs.existsSync(transcriptPath)) {
-            fs.unlinkSync(transcriptPath);
-          }
-        }, 3000);
-
-        return;
-      }
-
-      // ===== TICKET RATING =====
-      if (id.startsWith("modal_ticket_rating_")) {
-        const parts = id.split("_");
-        const channelId = parts[3];
-        const stars = parts[4];
+      if (interaction.customId.startsWith("modal_ticket_rate_")) {
+        const [, , , channelId, stars] = interaction.customId.split("_");
         const reason = interaction.fields.getTextInputValue("reason");
 
-        if (!ticketRatings[channelId]) {
-          ticketRatings[channelId] = { ratedUsers: [], ratings: [] };
-        }
-
-        if (ticketRatings[channelId].ratedUsers.includes(interaction.user.id)) {
-          return replyEphemeral(interaction, "❌ لقد قمت بتقييم هذه التذكرة بالفعل.");
-        }
-
-        ticketRatings[channelId].ratedUsers.push(interaction.user.id);
-        ticketRatings[channelId].ratings.push({
-          userId: interaction.user.id,
+        ticketRatings[channelId] = {
           stars: Number(stars),
-          reason: safeTrim(reason, 2000),
-          at: new Date().toISOString(),
-        });
+          userId: interaction.user.id,
+          reason,
+        };
         saveTicketRatings();
 
-        const ch = await interaction.client.channels.fetch(FEEDBACK_CHANNEL_ID).catch(() => null);
-        if (ch?.isTextBased()) {
+        const feedbackChannel = await interaction.guild.channels.fetch(FEEDBACK_CHANNEL_ID).catch(() => null);
+        if (feedbackChannel?.isTextBased()) {
           const embed = new EmbedBuilder()
             .setColor(0xffd54f)
-            .setTitle("⭐ تقييم جديد للتذكرة")
-            .addFields(
-              { name: "العضو", value: `<@${interaction.user.id}>`, inline: true },
-              { name: "رقم التذكرة", value: channelId, inline: true },
-              { name: "عدد النجوم", value: `${stars}`, inline: true },
-              { name: "السبب", value: safeTrim(reason, 1024), inline: false }
+            .setTitle("⭐ تقييم جديد")
+            .setDescription(
+              `**المستخدم:** <@${interaction.user.id}>\n` +
+                `**التذكرة:** ${channelId}\n` +
+                `**النجوم:** ${"⭐".repeat(Number(stars))}\n\n` +
+                `**السبب:**\n${safeTrim(reason, 1800)}`
             )
-            .setFooter({ text: "Night City RP • Ticket Rating" })
             .setTimestamp();
 
-          await ch.send({ embeds: [embed] }).catch(() => {});
+          await feedbackChannel.send({ embeds: [embed] }).catch(() => {});
         }
 
-return interaction.reply({
-  content: "✅ شكراً لك، تم إرسال تقييم التذكرة بنجاح",
-  flags: MessageFlags.Ephemeral,
-});
-}
-
-// هنا بس الـ catch
-catch (err) {
-  console.log("interaction error:", err?.message || err);
-
-  if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
-    await interaction.reply({
-      content: "❌ حصل خطأ غير متوقع",
-      flags: MessageFlags.Ephemeral,
-    }).catch(() => {});
+        return replyEphemeral(interaction, "✅ شكرًا على تقييمك.");
+      }
+    }
+  } catch (err) {
+    console.log("interactionCreate error:", err?.message || err);
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: "❌ حصل خطأ غير متوقع.", flags: MessageFlags.Ephemeral }).catch(() => {});
+    }
   }
-}
+});
 
 // ======================================================
-// DM FLOW
+// ADMIN MESSAGE COMMANDS
 // ======================================================
-client.on("messageCreate", async (msg) => {
+client.on("messageCreate", async (message) => {
   try {
-    if (msg.author.bot) return;
-    if (msg.guild) return;
+    if (message.author.bot) return;
+    if (!message.guild) return;
+    if (!isAdmin(message.member)) return;
 
-    const session = getSession(msg.author.id);
-    if (!session) return;
-
-    const questions =
-      session.type === "rp"
-        ? RP_QUESTIONS
-        : session.type === "creator"
-        ? CREATOR_QUESTIONS
-        : session.type === "admin"
-        ? ADMIN_QUESTIONS
-        : session.questions || GANG_QUESTIONS;
-
-    const q = questions[session.step];
-    if (!q) return;
-
-    const answer = safeTrim(msg.content, 2000);
-
-    if (tooShortAnswer(answer)) {
-      return msg.reply("❌ إجابة ضعيفة، اكتب بشكل أوضح.");
-    }
-
-    if (q.key === "story" && session.type === "rp" && wordCount(answer) < 150) {
-      return msg.reply("❌ القصة لازم 150 كلمة.");
-    }
-
-    session.answers[q.key] = answer;
-    session.step++;
-
-    if (session.step < questions.length) {
-      setSession(msg.author.id, session);
-      return msg.reply(questions[session.step].q);
-    }
-
-    const guild = await client.guilds.fetch(session.guildId).catch(() => null);
-    if (!guild) {
-      endSession(msg.author.id);
+    if (message.content === "!panels") {
+      await ensurePanels(message.guild);
+      await message.reply("✅ تم تحديث البانلز.").catch(() => {});
       return;
     }
 
-    if (session.type === "rp") {
-      await submitRpToReview(guild, msg.author.id, session.answers);
-    } else if (session.type === "creator") {
-      await submitCreatorToReview(guild, msg.author.id, session.answers);
-    } else if (session.type === "admin") {
-      await submitAdminToReview(guild, msg.author.id, session.answers);
-    } else if (session.type === "gang") {
-      await submitGangToReview(guild, msg.author.id, session.gangId, session.answers);
+    if (message.content === "!gangs") {
+      await updateGangsPanel(message.guild);
+      await message.reply("✅ تم تحديث بانل العصابات.").catch(() => {});
+      return;
     }
 
-    await msg.reply("✅ تم إرسال التقديم بنجاح.");
-    endSession(msg.author.id);
-  } catch (e) {
-    console.log("dm flow error:", e?.message || e);
+    if (message.content === "!creators") {
+      await updateCreatorBoard(message.guild);
+      await message.reply("✅ تم تحديث لوحة صناع المحتوى.").catch(() => {});
+      return;
+    }
+  } catch (err) {
+    console.log("admin command error:", err?.message || err);
   }
+});
+
+// ======================================================
+// ERROR SAFE
+// ======================================================
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled Rejection:", err);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
 });
 
 // ======================================================
 // LOGIN
 // ======================================================
 if (!TOKEN) {
-  console.log("❌ Missing TOKEN env var. Put TOKEN in Railway variables.");
-} else {
-  client.login(TOKEN).catch((e) => console.log("Login error:", e?.message || e));
+  console.log("❌ TOKEN missing");
+  process.exit(1);
 }
-                                             
+
+client.login(TOKEN);
