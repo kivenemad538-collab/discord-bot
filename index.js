@@ -3163,22 +3163,23 @@ return interaction.reply({
           await ch.send({ embeds: [embed] }).catch(() => {});
         }
 
-        return interaction.reply({
-          content: "✅ شكرًا لك، تم إرسال تقييم التذكرة بنجاح.",
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-    }
-  } catch (err) {
-    console.log("interaction error:", err?.message || err);
-    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
-      await interaction.reply({
-        content: "❌ حصل خطأ غير متوقع.",
-        flags: MessageFlags.Ephemeral,
-      }).catch(() => {});
-    }
-  }
+return interaction.reply({
+  content: "✅ شكراً لك، تم إرسال تقييم التذكرة بنجاح",
+  flags: MessageFlags.Ephemeral,
 });
+}
+
+// هنا بس الـ catch
+catch (err) {
+  console.log("interaction error:", err?.message || err);
+
+  if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
+    await interaction.reply({
+      content: "❌ حصل خطأ غير متوقع",
+      flags: MessageFlags.Ephemeral,
+    }).catch(() => {});
+  }
+}
 
 // ======================================================
 // DM FLOW
