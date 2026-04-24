@@ -1,21 +1,33 @@
-const fs = require("fs");
-const path = require("path");
-const {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  PermissionsBitField,
-  ChannelType,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  StringSelectMenuBuilder,
-  MessageFlags,
-  AttachmentBuilder,
+Client,
+
+GatewayIntentBits,
+
+Partials,
+
+PermissionsBitField,
+
+ChannelType,
+
+EmbedBuilder,
+
+ActionRowBuilder,
+
+ButtonBuilder,
+
+ButtonStyle,
+
+ModalBuilder,
+
+TextInputBuilder,
+
+TextInputStyle,
+
+StringSelectMenuBuilder,
+
+MessageFlags,
+
+AttachmentBuilder,
+
 } = require("discord.js");
 
 // ======================================================
@@ -24,13 +36,13 @@ const {
 const TOKEN = process.env.TOKEN || "";
 
 // Optional placeholders
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "";
+const YOUTUBE_API_KEY = pro...KEY || "";
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID || "";
-const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET || "";
+const TWITCH_CLIENT_SECRET = pro...RET || "";
 
 // ================= CUSTOM LINKS / BRANDING =================
 const SERVER_LOGO_URL =
-  "https://cdn.discordapp.com/attachments/1466112784587821189/1478302405102931998/ChatGPT_Image_Feb_24_2026_05_21_31_PM.png?ex=69daa9a6&is=69d95826&hm=2eb51daf3a7021a3efe6a80315028f30803f502063be06c0b640af8fe3f5212d&";
+  "https://cdn.discordapp.com/attachments/1466112784587821189/1478302405102931998/ChatGPT_Image_Feb_24_2026_05_21_31_PM.png?ex=69daa9a6&is=69d95826&hm=2eb...12d&";
 
 const SERVER_RULES_LINK =
   "https://docs.google.com/document/d/1dKZLMztoq_Z1MJfW4JVG3Y-Y8baNOds2VJ3QxJ_LeIE/edit?tab=t.0";
@@ -69,9 +81,12 @@ const SUGGEST_CATEGORY_ID = "1492285484301549618";
 
 // ================= ADMIN ROLES (3) =================
 const ADMIN_ROLE_IDS = [
-  "1465798793772666941",
-  "1465800480474005569",
-  "1467593770898948158",
+"1465798793772666941",
+
+"1465800480474005569",
+
+"1467593770898948158",
+
 ];
 
 // ================= ACCEPT ROLES =================
@@ -1470,8 +1485,8 @@ async function createTicket(interaction, kind) {
     embeds: [ticketOpenEmbed(interaction.user.id, kind, ticketId, "none")],
     components: [row],
   }).catch(() => {});
+await interaction.user
 
-  await interaction.user
     .send({
       embeds: [
         new EmbedBuilder()
@@ -1543,8 +1558,8 @@ async function createGangFromModal(interaction, fields) {
     console.log("createGangFromModal review room error:", err?.message || err);
     return replyEphemeral(interaction, "❌ فشل إنشاء روم مراجعة العصابة.");
   }
+gangs.push(
 
-  gangs.push(
     normalizeGang({
       id: String(Date.now()),
       name,
@@ -1712,8 +1727,8 @@ client.on("guildMemberAdd", async (member) => {
       .setStyle(settings.feedback ? ButtonStyle.Primary : ButtonStyle.Secondary)
       .setDisabled(!settings.feedback)
   );
+await channel
 
-  await channel
     .send({
       content: `<@${member.id}>`,
       embeds: [buildWelcomeEmbed(member)],
@@ -2404,5 +2419,3 @@ if (!TOKEN) {
   console.log("❌ TOKEN missing");
   process.exit(1);
 }
-
-client.login(TOKEN);
