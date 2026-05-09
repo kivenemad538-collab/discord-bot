@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const {
     Client,
     GatewayIntentBits,
@@ -32,7 +34,8 @@ const client = new Client({
 // CONFIG
 //////////////////////////////
 
-const TOKEN = "PUT_BOT_TOKEN";
+const TOKEN = process.env.TOKEN;
+
 const GUILD_ID = "PUT_SERVER_ID";
 
 const STAFF_ROLE_ID = "PUT_STAFF_ROLE_ID";
