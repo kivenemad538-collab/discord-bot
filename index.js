@@ -52,7 +52,7 @@ const SUGGESTION_CATEGORY_ID = "1477766632817426675";
 
 const RATING_CHANNEL_ID = "1480098551248715896";
 
-const PANEL_IMAGE = "https://cdn.discordapp.com/attachments/1475033418336174141/1502703847246794922/logo.png?ex=6a00ad84&is=69ff5c04&hm=fb2ea3ca39502da3593625ba0387ec288ea080c43176fb08a501a0d7dfab5193&";
+const PANEL_IMAGE = "https://cdn.discordapp.com/attachments/1475033418336174141/1502704262935740557/banner_connecting.png?ex=6a00ade7&is=69ff5c67&hm=9dc9bf8e8f341733bb11596b1add1c86a2d630beca51bcea532e66dda2168e7e&";
 
 //////////////////////////////
 
