@@ -75,28 +75,28 @@ const ticketTypes = {
         name: "الدعم الفني",
         emoji: "🛠️",
         category: SUPPORT_CATEGORY_ID,
-        message: "اتفضل اشرح مشكلتك بالكامل بالتفاصيل."
+        message: "يرجى شرح المشكلة بالكامل مع إرسال الصور أو المقاطع إن وجدت حتى يتمكن فريق الدعم من مساعدتك بأسرع وقت ممكن."
     },
 
     appeal: {
         name: "استئناف",
         emoji: "📨",
         category: APPEAL_CATEGORY_ID,
-        message: "اتفضل اكتب سبب الاستئناف بالكامل."
+        message: "يرجى كتابة سبب الاستئناف بالكامل مع توضيح جميع التفاصيل الخاصة بالحالة الخاصة بك."
     },
 
     report: {
         name: "شكوى لاعب",
         emoji: "🚨",
         category: REPORT_CATEGORY_ID,
-        message: "اتفضل اشرح الشكوى واكتب اسم اللاعب والدليل."
+        message: "يرجى كتابة اسم اللاعب وشرح الشكوى بالكامل مع إرسال الأدلة المتوفرة."
     },
 
     suggestion: {
         name: "اقتراح",
         emoji: "💡",
         category: SUGGESTION_CATEGORY_ID,
-        message: "اتفضل اكتب اقتراحك بالكامل."
+        message: "يرجى كتابة اقتراحك بالكامل مع توضيح الفكرة وطريقة تنفيذها داخل السيرفر."
     }
 };
 
@@ -128,7 +128,22 @@ client.once("ready", async () => {
 
     const embed = new EmbedBuilder()
         .setTitle("🎫 نظام التذاكر")
-        .setDescription("اختار نوع التذكرة من الأزرار تحت")
+        .setDescription(`
+مرحبا بك في نظام التذاكر الخاص بسيرفر Nova CFW.
+
+يرجى اختيار نوع التذكرة المناسب من الأزرار الموجودة بالأسفل.
+
+━━━━━━━━━━━━━━━━━━
+
+🛠️ الدعم الفني  
+📨 الاستئناف  
+🚨 شكوى لاعب  
+💡 اقتراح  
+
+━━━━━━━━━━━━━━━━━━
+
+⚠️ الرجاء عدم فتح تذاكر بدون سبب.
+`)
         .setColor("Red")
         .setImage(PANEL_IMAGE);
 
@@ -192,8 +207,10 @@ client.on("interactionCreate", async (interaction) => {
                 });
             }
 
+            const ticketNumber = Math.floor(Math.random() * 9999);
+
             const channel = await interaction.guild.channels.create({
-                name: `ticket-${interaction.user.username}`,
+                name: `${type.emoji}・ticket-${ticketNumber}`,
                 type: ChannelType.GuildText,
                 parent: type.category,
 
@@ -231,14 +248,31 @@ client.on("interactionCreate", async (interaction) => {
 
             const embed = new EmbedBuilder()
                 .setTitle(`${type.emoji} ${type.name}`)
+                .setColor("Red")
+                .setThumbnail(interaction.user.displayAvatarURL())
+                .setImage(PANEL_IMAGE)
+
                 .setDescription(`
-${interaction.user}
+# مرحبا بك في نظام التذاكر
+
+**صاحب التذكرة:** ${interaction.user}
+
+**نوع التذكرة:** ${type.name}
 
 ${type.message}
 
-⚠️ لا يمكنك الكتابة حتى يتم استلام التذكرة
-`)
-                .setColor("Red");
+━━━━━━━━━━━━━━━━━━
+
+⚠️ الرجاء شرح المشكلة أو الطلب بالكامل وبشكل واضح حتى يتم مساعدتك بأسرع وقت ممكن.
+
+⚠️ يمنع السبام أو المنشن المتكرر للإدارة.
+
+⚠️ لا يمكنك إرسال رسائل حتى يتم استلام التذكرة من الإدارة.
+
+━━━━━━━━━━━━━━━━━━
+
+✅ سيتم الرد عليك من فريق الإدارة في أقرب وقت.
+`);
 
             const buttons = new ActionRowBuilder()
                 .addComponents(
@@ -257,6 +291,11 @@ ${type.message}
                 );
 
             await channel.send({
+                content: `
+## ${type.emoji} تذكرة جديدة
+
+${interaction.user}
+`,
                 embeds: [embed],
                 components: [buttons]
             });
@@ -301,7 +340,11 @@ ${type.message}
             const embed = new EmbedBuilder()
                 .setTitle("✅ تم استلام التذكرة")
                 .setDescription(`
-المستلم: ${interaction.user}
+تم استلام التذكرة بواسطة:
+
+${interaction.user}
+
+يرجى الانتظار حتى يتم مراجعة طلبك بالكامل.
 `)
                 .setColor("Green");
 
@@ -405,6 +448,7 @@ ${type.message}
             const closeEmbed = new EmbedBuilder()
                 .setTitle("🔒 تم إغلاق تذكرتك")
                 .setColor("Red")
+                .setImage(PANEL_IMAGE)
                 .addFields(
 
                     {
