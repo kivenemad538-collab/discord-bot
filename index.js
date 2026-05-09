@@ -36,7 +36,7 @@ const client = new Client({
 
 const TOKEN = process.env.TOKEN;
 
-const GUILD_ID = "PUT_SERVER_ID";
+const GUILD_ID = "1465609781837303873";
 
 const STAFF_ROLE_ID = "PUT_STAFF_ROLE_ID";
 const CLOSE_ROLE_ID = "PUT_CLOSE_ROLE_ID";
