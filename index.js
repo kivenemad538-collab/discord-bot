@@ -12,10 +12,7 @@ const {
     PermissionFlagsBits,
     ModalBuilder,
     TextInputBuilder,
-    TextInputStyle,
-    SlashCommandBuilder,
-    REST,
-    Routes
+    TextInputStyle
 } = require("discord.js");
 
 const fs = require("fs");
@@ -37,6 +34,8 @@ const client = new Client({
 const TOKEN = process.env.TOKEN;
 
 const GUILD_ID = "1465609781837303873";
+
+const PANEL_CHANNEL_ID = "PUT_PANEL_CHANNEL_ID";
 
 const STAFF_ROLE_ID = "PUT_STAFF_ROLE_ID";
 const CLOSE_ROLE_ID = "PUT_CLOSE_ROLE_ID";
@@ -101,71 +100,71 @@ client.once("ready", async () => {
 
     console.log(`${client.user.tag} جاهز`);
 
-    const commands = [
-        new SlashCommandBuilder()
-            .setName("panel")
-            .setDescription("ارسال بانل التذاكر")
-            .toJSON()
-    ];
+    const guild = client.guilds.cache.get(GUILD_ID);
 
-    const rest = new REST({ version: "10" }).setToken(TOKEN);
+    const panelChannel = guild.channels.cache.get(PANEL_CHANNEL_ID);
 
-    await rest.put(
-        Routes.applicationGuildCommands(client.user.id, GUILD_ID),
-        { body: commands }
+    if (!panelChannel) {
+        console.log("روم البانل غير موجود");
+        return;
+    }
+
+    const messages = await panelChannel.messages.fetch({ limit: 20 });
+
+    const alreadyExists = messages.find(msg =>
+        msg.author.id === client.user.id &&
+        msg.embeds.length > 0 &&
+        msg.embeds[0].title === "🎫 نظام التذاكر"
     );
+
+    if (alreadyExists) {
+        console.log("البانل موجودة بالفعل");
+        return;
+    }
+
+    const embed = new EmbedBuilder()
+        .setTitle("🎫 نظام التذاكر")
+        .setDescription("اختار نوع التذكرة من الأزرار تحت")
+        .setColor("Red")
+        .setImage(PANEL_IMAGE);
+
+    const row = new ActionRowBuilder()
+        .addComponents(
+
+            new ButtonBuilder()
+                .setCustomId("support")
+                .setLabel("الدعم الفني")
+                .setEmoji("🛠️")
+                .setStyle(ButtonStyle.Primary),
+
+            new ButtonBuilder()
+                .setCustomId("appeal")
+                .setLabel("استئناف")
+                .setEmoji("📨")
+                .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+                .setCustomId("report")
+                .setLabel("شكوى لاعب")
+                .setEmoji("🚨")
+                .setStyle(ButtonStyle.Danger),
+
+            new ButtonBuilder()
+                .setCustomId("suggestion")
+                .setLabel("اقتراح")
+                .setEmoji("💡")
+                .setStyle(ButtonStyle.Success)
+        );
+
+    await panelChannel.send({
+        embeds: [embed],
+        components: [row]
+    });
+
+    console.log("تم إرسال بانل التذاكر");
 });
 
 client.on("interactionCreate", async (interaction) => {
-
-    //////////////////////////////
-    // PANEL
-    //////////////////////////////
-
-    if (interaction.isChatInputCommand()) {
-
-        if (interaction.commandName === "panel") {
-
-            const embed = new EmbedBuilder()
-                .setTitle("🎫 نظام التذاكر")
-                .setDescription("اختار نوع التذكرة من الأزرار تحت")
-                .setColor("Red")
-                .setImage(PANEL_IMAGE);
-
-            const row = new ActionRowBuilder()
-                .addComponents(
-
-                    new ButtonBuilder()
-                        .setCustomId("support")
-                        .setLabel("الدعم الفني")
-                        .setEmoji("🛠️")
-                        .setStyle(ButtonStyle.Primary),
-
-                    new ButtonBuilder()
-                        .setCustomId("appeal")
-                        .setLabel("استئناف")
-                        .setEmoji("📨")
-                        .setStyle(ButtonStyle.Secondary),
-
-                    new ButtonBuilder()
-                        .setCustomId("report")
-                        .setLabel("شكوى لاعب")
-                        .setEmoji("🚨")
-                        .setStyle(ButtonStyle.Danger),
-
-                    new ButtonBuilder()
-                        .setCustomId("suggestion")
-                        .setLabel("اقتراح")
-                        .setEmoji("💡")
-                        .setStyle(ButtonStyle.Success)
-                );
-
-            return interaction.reply({
-                embeds: [embed],
-                components: [row]
-            });
-        }
-    }
 
     //////////////////////////////
     // OPEN TICKET
@@ -471,10 +470,6 @@ ${type.message}
                 interaction.channel.delete().catch(() => { });
             }, 5000);
         }
-
-        //////////////////////////////
-        // RATING MODAL
-        //////////////////////////////
 
         if (interaction.customId.startsWith("ratingmodal_")) {
 
