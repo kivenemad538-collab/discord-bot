@@ -37,9 +37,7 @@ const GUILD_ID = "1465609781837303873";
 
 const PANEL_CHANNEL_ID = "PUT_PANEL_CHANNEL_ID";
 
-const STAFF_ROLE_ID = "PUT_STAFF_ROLE_ID";
-const CLOSE_ROLE_ID = "PUT_CLOSE_ROLE_ID";
-const MENTION_ROLE_ID = "PUT_MENTION_ROLE_ID";
+const ADMIN_ROLE_ID = "PUT_ADMIN_ROLE_ID";
 
 const SUPPORT_CATEGORY_ID = "PUT_SUPPORT_CATEGORY_ID";
 const APPEAL_CATEGORY_ID = "PUT_APPEAL_CATEGORY_ID";
@@ -166,11 +164,11 @@ client.once("ready", async () => {
 
 client.on("interactionCreate", async (interaction) => {
 
-    //////////////////////////////
-    // OPEN TICKET
-    //////////////////////////////
-
     if (interaction.isButton()) {
+
+        //////////////////////////////
+        // OPEN TICKET
+        //////////////////////////////
 
         if (ticketTypes[interaction.customId]) {
 
@@ -215,10 +213,11 @@ client.on("interactionCreate", async (interaction) => {
                     },
 
                     {
-                        id: STAFF_ROLE_ID,
+                        id: ADMIN_ROLE_ID,
                         allow: [
                             PermissionFlagsBits.ViewChannel,
-                            PermissionFlagsBits.SendMessages
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ReadMessageHistory
                         ]
                     }
                 ]
@@ -252,7 +251,6 @@ ${type.message}
                 );
 
             await channel.send({
-                content: `<@&${MENTION_ROLE_ID}>`,
                 embeds: [embed],
                 components: [buttons]
             });
@@ -269,7 +267,7 @@ ${type.message}
 
         if (interaction.customId === "claim_ticket") {
 
-            if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
+            if (!interaction.member.roles.cache.has(ADMIN_ROLE_ID)) {
 
                 return interaction.reply({
                     content: "❌ ليس لديك صلاحية",
@@ -303,12 +301,12 @@ ${type.message}
         }
 
         //////////////////////////////
-        // CLOSE BUTTON
+        // CLOSE
         //////////////////////////////
 
         if (interaction.customId === "close_ticket") {
 
-            if (!interaction.member.roles.cache.has(CLOSE_ROLE_ID)) {
+            if (!interaction.member.roles.cache.has(ADMIN_ROLE_ID)) {
 
                 return interaction.reply({
                     content: "❌ ليس لديك صلاحية",
@@ -373,7 +371,7 @@ ${type.message}
     }
 
     //////////////////////////////
-    // CLOSE MODAL
+    // MODALS
     //////////////////////////////
 
     if (interaction.isModalSubmit()) {
