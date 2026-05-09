@@ -37,7 +37,11 @@ const GUILD_ID = "1465609781837303873";
 
 const PANEL_CHANNEL_ID = "PUT_PANEL_CHANNEL_ID";
 
-const ADMIN_ROLE_ID = "PUT_ADMIN_ROLE_ID";
+const ADMIN_ROLE_IDS = [
+    "ROLE_ID_1",
+    "ROLE_ID_2",
+    "ROLE_ID_3"
+];
 
 const SUPPORT_CATEGORY_ID = "PUT_SUPPORT_CATEGORY_ID";
 const APPEAL_CATEGORY_ID = "PUT_APPEAL_CATEGORY_ID";
@@ -212,14 +216,14 @@ client.on("interactionCreate", async (interaction) => {
                         ]
                     },
 
-                    {
-                        id: ADMIN_ROLE_ID,
+                    ...ADMIN_ROLE_IDS.map(role => ({
+                        id: role,
                         allow: [
                             PermissionFlagsBits.ViewChannel,
                             PermissionFlagsBits.SendMessages,
                             PermissionFlagsBits.ReadMessageHistory
                         ]
-                    }
+                    }))
                 ]
             });
 
@@ -267,7 +271,11 @@ ${type.message}
 
         if (interaction.customId === "claim_ticket") {
 
-            if (!interaction.member.roles.cache.has(ADMIN_ROLE_ID)) {
+            const hasPermission = ADMIN_ROLE_IDS.some(role =>
+                interaction.member.roles.cache.has(role)
+            );
+
+            if (!hasPermission) {
 
                 return interaction.reply({
                     content: "❌ ليس لديك صلاحية",
@@ -306,7 +314,11 @@ ${type.message}
 
         if (interaction.customId === "close_ticket") {
 
-            if (!interaction.member.roles.cache.has(ADMIN_ROLE_ID)) {
+            const hasPermission = ADMIN_ROLE_IDS.some(role =>
+                interaction.member.roles.cache.has(role)
+            );
+
+            if (!hasPermission) {
 
                 return interaction.reply({
                     content: "❌ ليس لديك صلاحية",
