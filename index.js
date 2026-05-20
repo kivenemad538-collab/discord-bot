@@ -36,6 +36,8 @@ const TOKEN = process.env.TOKEN;
 const GUILD_ID = "1465609781837303873";
 
 const PANEL_CHANNEL_ID = "1465757986684403828";
+const INTERVIEW_PANEL_CHANNEL_ID = "PUT_INTERVIEW_PANEL_CHANNEL_ID";
+
 const CONTROL_CHANNEL_ID = "1480098674578034698";
 
 const ADMIN_ROLE_IDS = [
@@ -50,18 +52,37 @@ const SUPPORT_CATEGORY_ID = "1473850568811221194";
 const APPEAL_CATEGORY_ID = "1477765907496308897";
 const REPORT_CATEGORY_ID = "1473843823607021579";
 const SUGGESTION_CATEGORY_ID = "1477766632817426675";
+const INTERVIEW_CATEGORY_ID = "PUT_INTERVIEW_CATEGORY_ID";
 
 const RATING_CHANNEL_ID = "1480098551248715896";
 
-const PANEL_IMAGE = "https://cdn.discordapp.com/attachments/1475033418336174141/1502704262935740557/banner_connecting.png?ex=6a00ade7&is=69ff5c67&hm=9dc9bf8e8f341733bb11596b1add1c86a2d630beca51bcea532e66dda2168e7e&";
+const PANEL_IMAGE = "https://cdn.discordapp.com/attachments/1475033418336174141/1502704262935740557/banner_connecting.png";
+
+const INTERVIEW_PANEL_IMAGE = "PUT_INTERVIEW_PANEL_IMAGE";
+
+const TICKET_IMAGES = {
+    support: "PUT_SUPPORT_TICKET_IMAGE",
+    appeal: "PUT_APPEAL_TICKET_IMAGE",
+    report: "PUT_REPORT_TICKET_IMAGE",
+    suggestion: "PUT_SUGGESTION_TICKET_IMAGE",
+    interview: "PUT_INTERVIEW_TICKET_IMAGE"
+};
 
 //////////////////////////////
 
 const ratingsFile = "./ratings.json";
 const controlFile = "./control.json";
+const counterFile = "./ticketCounter.json";
+const activityFile = "./ticketActivity.json";
 
-if (!fs.existsSync(ratingsFile)) {
-    fs.writeFileSync(ratingsFile, "{}");
+if (!fs.existsSync(ratingsFile)) fs.writeFileSync(ratingsFile, "{}");
+
+if (!fs.existsSync(counterFile)) {
+    fs.writeFileSync(counterFile, JSON.stringify({ count: 0 }, null, 2));
+}
+
+if (!fs.existsSync(activityFile)) {
+    fs.writeFileSync(activityFile, "{}");
 }
 
 if (!fs.existsSync(controlFile)) {
@@ -69,7 +90,8 @@ if (!fs.existsSync(controlFile)) {
         support: false,
         appeal: false,
         report: false,
-        suggestion: false
+        suggestion: false,
+        interview: false
     }, null, 2));
 }
 
@@ -89,8 +111,31 @@ function saveControl(data) {
     fs.writeFileSync(controlFile, JSON.stringify(data, null, 2));
 }
 
+function loadCounter() {
+    return JSON.parse(fs.readFileSync(counterFile));
+}
+
+function saveCounter(data) {
+    fs.writeFileSync(counterFile, JSON.stringify(data, null, 2));
+}
+
+function loadActivity() {
+    return JSON.parse(fs.readFileSync(activityFile));
+}
+
+function saveActivity(data) {
+    fs.writeFileSync(activityFile, JSON.stringify(data, null, 2));
+}
+
 function hasAdminRole(member) {
     return ADMIN_ROLE_IDS.some(role => member.roles.cache.has(role));
+}
+
+function getTicketNumber() {
+    const counter = loadCounter();
+    counter.count += 1;
+    saveCounter(counter);
+    return String(counter.count).padStart(3, "0");
 }
 
 const ticketTypes = {
@@ -98,6 +143,7 @@ const ticketTypes = {
         name: "الدعم الفني",
         emoji: "🛠️",
         category: SUPPORT_CATEGORY_ID,
+        image: TICKET_IMAGES.support,
         message: "يرجى شرح المشكلة بالكامل مع إرسال الصور أو المقاطع إن وجدت حتى يتمكن فريق الدعم من مساعدتك بأسرع وقت ممكن."
     },
 
@@ -105,6 +151,7 @@ const ticketTypes = {
         name: "استئناف",
         emoji: "📨",
         category: APPEAL_CATEGORY_ID,
+        image: TICKET_IMAGES.appeal,
         message: "يرجى كتابة سبب الاستئناف بالكامل مع توضيح جميع التفاصيل الخاصة بالحالة الخاصة بك."
     },
 
@@ -112,6 +159,7 @@ const ticketTypes = {
         name: "شكوى لاعب",
         emoji: "🚨",
         category: REPORT_CATEGORY_ID,
+        image: TICKET_IMAGES.report,
         message: "يرجى كتابة اسم اللاعب وشرح الشكوى بالكامل مع إرسال الأدلة المتوفرة."
     },
 
@@ -119,87 +167,223 @@ const ticketTypes = {
         name: "اقتراح",
         emoji: "💡",
         category: SUGGESTION_CATEGORY_ID,
+        image: TICKET_IMAGES.suggestion,
         message: "يرجى كتابة اقتراحك بالكامل مع توضيح الفكرة وطريقة تنفيذها داخل السيرفر."
+    },
+
+    interview: {
+        name: "مقابلة فورية",
+        emoji: "🎤",
+        category: INTERVIEW_CATEGORY_ID,
+        image: TICKET_IMAGES.interview,
+        message: "يرجى انتظار الإدارة، وسيتم استلام التذكرة لبدء المقابلة الفورية معك."
     }
 };
 
-client.once("ready", async () => {
+function statusText(key) {
+    const control = loadControl();
+    return control[key] ? "🔴 مقفولة" : "🟢 مفتوحة";
+}
 
-    console.log(`${client.user.tag} جاهز`);
-
-    const guild = client.guilds.cache.get(GUILD_ID);
-
-    const panelChannel = guild.channels.cache.get(PANEL_CHANNEL_ID);
-
-    if (!panelChannel) {
-        console.log("روم البانل غير موجود");
-        return;
-    }
-
-    const messages = await panelChannel.messages.fetch({ limit: 20 });
-
-    const alreadyExists = messages.find(msg =>
-        msg.author.id === client.user.id &&
-        msg.embeds.length > 0 &&
-        msg.embeds[0].title === "🎫 نظام التذاكر"
-    );
-
-    if (!alreadyExists) {
-        const embed = new EmbedBuilder()
-            .setTitle("🎫 نظام التذاكر")
-            .setDescription(`
+function mainPanelEmbed() {
+    return new EmbedBuilder()
+        .setTitle("🎫 نظام التذاكر")
+        .setDescription(`
 مرحبا بك في نظام التذاكر الخاص بسيرفر Nova CFW.
 
 يرجى اختيار نوع التذكرة المناسب من الأزرار الموجودة بالأسفل.
 
 ━━━━━━━━━━━━━━━━━━
 
-🛠️ الدعم الفني  
-📨 الاستئناف  
-🚨 شكوى لاعب  
-💡 اقتراح  
+🛠️ الدعم الفني: ${statusText("support")}
+📨 الاستئناف: ${statusText("appeal")}
+🚨 شكوى لاعب: ${statusText("report")}
+💡 اقتراح: ${statusText("suggestion")}
 
 ━━━━━━━━━━━━━━━━━━
 
 ⚠️ الرجاء عدم فتح تذاكر بدون سبب.
+⚠️ يتم إغلاق التذكرة تلقائيا بعد 24 ساعة إذا لم يحدث أي تفاعل داخلها.
 `)
-            .setColor("Red")
-            .setImage(PANEL_IMAGE);
+        .setColor("Red")
+        .setImage(PANEL_IMAGE);
+}
 
-        const row = new ActionRowBuilder()
-            .addComponents(
+function mainPanelRow() {
+    const control = loadControl();
 
-                new ButtonBuilder()
-                    .setCustomId("support")
-                    .setLabel("الدعم الفني")
-                    .setEmoji("🛠️")
-                    .setStyle(ButtonStyle.Primary),
+    return new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("support")
+                .setLabel(control.support ? "الدعم الفني مقفول" : "الدعم الفني")
+                .setEmoji("🛠️")
+                .setStyle(ButtonStyle.Primary),
 
-                new ButtonBuilder()
-                    .setCustomId("appeal")
-                    .setLabel("استئناف")
-                    .setEmoji("📨")
-                    .setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder()
+                .setCustomId("appeal")
+                .setLabel(control.appeal ? "الاستئناف مقفول" : "استئناف")
+                .setEmoji("📨")
+                .setStyle(ButtonStyle.Secondary),
 
-                new ButtonBuilder()
-                    .setCustomId("report")
-                    .setLabel("شكوى لاعب")
-                    .setEmoji("🚨")
-                    .setStyle(ButtonStyle.Danger),
+            new ButtonBuilder()
+                .setCustomId("report")
+                .setLabel(control.report ? "شكوى لاعب مقفولة" : "شكوى لاعب")
+                .setEmoji("🚨")
+                .setStyle(ButtonStyle.Danger),
 
-                new ButtonBuilder()
-                    .setCustomId("suggestion")
-                    .setLabel("اقتراح")
-                    .setEmoji("💡")
-                    .setStyle(ButtonStyle.Success)
-            );
+            new ButtonBuilder()
+                .setCustomId("suggestion")
+                .setLabel(control.suggestion ? "الاقتراح مقفول" : "اقتراح")
+                .setEmoji("💡")
+                .setStyle(ButtonStyle.Success)
+        );
+}
 
-        await panelChannel.send({
-            embeds: [embed],
-            components: [row]
-        });
+function interviewPanelEmbed() {
+    return new EmbedBuilder()
+        .setTitle("🎤 المقابلة الفورية")
+        .setDescription(`
+مرحبا بك في نظام المقابلة الفورية.
 
-        console.log("تم إرسال بانل التذاكر");
+من هنا يمكنك فتح تذكرة مخصصة للمقابلة الفورية فقط.
+
+━━━━━━━━━━━━━━━━━━
+
+🎤 المقابلة الفورية: ${statusText("interview")}
+
+━━━━━━━━━━━━━━━━━━
+
+⚠️ افتح التذكرة فقط إذا كنت جاهزا للمقابلة.
+⚠️ يتم إغلاق التذكرة تلقائيا بعد 24 ساعة إذا لم يحدث أي تفاعل داخلها.
+`)
+        .setColor("DarkRed")
+        .setImage(INTERVIEW_PANEL_IMAGE);
+}
+
+function interviewPanelRow() {
+    const control = loadControl();
+
+    return new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("interview")
+                .setLabel(control.interview ? "المقابلة الفورية مقفولة" : "فتح مقابلة فورية")
+                .setEmoji("🎤")
+                .setStyle(ButtonStyle.Danger)
+        );
+}
+
+function controlEmbed() {
+    return new EmbedBuilder()
+        .setTitle("🎛️ لوحة تحكم التذاكر")
+        .setDescription(`
+من هنا تقدر تقفل أو تفتح كل نوع من تذاكر البانل.
+
+━━━━━━━━━━━━━━━━━━
+
+🛠️ الدعم الفني: ${statusText("support")}
+📨 الاستئناف: ${statusText("appeal")}
+🚨 شكوى لاعب: ${statusText("report")}
+💡 اقتراح: ${statusText("suggestion")}
+🎤 مقابلة فورية: ${statusText("interview")}
+
+━━━━━━━━━━━━━━━━━━
+
+اضغط على الزرار مرة للإغلاق، واضغط عليه مرة ثانية للتفعيل.
+`)
+        .setColor("DarkRed");
+}
+
+function controlRows() {
+    const control = loadControl();
+
+    const row1 = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("toggle_support")
+                .setLabel(control.support ? "فتح الدعم الفني" : "إغلاق الدعم الفني")
+                .setEmoji("🛠️")
+                .setStyle(control.support ? ButtonStyle.Success : ButtonStyle.Danger),
+
+            new ButtonBuilder()
+                .setCustomId("toggle_appeal")
+                .setLabel(control.appeal ? "فتح الاستئناف" : "إغلاق الاستئناف")
+                .setEmoji("📨")
+                .setStyle(control.appeal ? ButtonStyle.Success : ButtonStyle.Danger),
+
+            new ButtonBuilder()
+                .setCustomId("toggle_report")
+                .setLabel(control.report ? "فتح شكوى لاعب" : "إغلاق شكوى لاعب")
+                .setEmoji("🚨")
+                .setStyle(control.report ? ButtonStyle.Success : ButtonStyle.Danger),
+
+            new ButtonBuilder()
+                .setCustomId("toggle_suggestion")
+                .setLabel(control.suggestion ? "فتح الاقتراح" : "إغلاق الاقتراح")
+                .setEmoji("💡")
+                .setStyle(control.suggestion ? ButtonStyle.Success : ButtonStyle.Danger)
+        );
+
+    const row2 = new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId("toggle_interview")
+                .setLabel(control.interview ? "فتح المقابلة الفورية" : "إغلاق المقابلة الفورية")
+                .setEmoji("🎤")
+                .setStyle(control.interview ? ButtonStyle.Success : ButtonStyle.Danger)
+        );
+
+    return [row1, row2];
+}
+
+async function sendOrUpdatePanels(guild) {
+    const panelChannel = guild.channels.cache.get(PANEL_CHANNEL_ID);
+
+    if (panelChannel) {
+        const messages = await panelChannel.messages.fetch({ limit: 20 });
+
+        const alreadyExists = messages.find(msg =>
+            msg.author.id === client.user.id &&
+            msg.embeds.length > 0 &&
+            msg.embeds[0].title === "🎫 نظام التذاكر"
+        );
+
+        if (alreadyExists) {
+            await alreadyExists.edit({
+                embeds: [mainPanelEmbed()],
+                components: [mainPanelRow()]
+            });
+        } else {
+            await panelChannel.send({
+                embeds: [mainPanelEmbed()],
+                components: [mainPanelRow()]
+            });
+        }
+    }
+
+    const interviewPanelChannel = guild.channels.cache.get(INTERVIEW_PANEL_CHANNEL_ID);
+
+    if (interviewPanelChannel) {
+        const messages = await interviewPanelChannel.messages.fetch({ limit: 20 });
+
+        const alreadyExists = messages.find(msg =>
+            msg.author.id === client.user.id &&
+            msg.embeds.length > 0 &&
+            msg.embeds[0].title === "🎤 المقابلة الفورية"
+        );
+
+        if (alreadyExists) {
+            await alreadyExists.edit({
+                embeds: [interviewPanelEmbed()],
+                components: [interviewPanelRow()]
+            });
+        } else {
+            await interviewPanelChannel.send({
+                embeds: [interviewPanelEmbed()],
+                components: [interviewPanelRow()]
+            });
+        }
     }
 
     const controlChannel = guild.channels.cache.get(CONTROL_CHANNEL_ID);
@@ -213,73 +397,163 @@ client.once("ready", async () => {
             msg.embeds[0].title === "🎛️ لوحة تحكم التذاكر"
         );
 
-        if (!controlExists) {
-            const controlEmbed = new EmbedBuilder()
-                .setTitle("🎛️ لوحة تحكم التذاكر")
-                .setDescription(`
-من هنا تقدر تقفل أو تفتح كل نوع من تذاكر البانل.
-
-━━━━━━━━━━━━━━━━━━
-
-🛠️ الدعم الفني  
-📨 الاستئناف  
-🚨 شكوى لاعب  
-💡 اقتراح  
-
-━━━━━━━━━━━━━━━━━━
-
-اضغط على الزرار مرة للإغلاق، واضغط عليه مرة ثانية للتفعيل.
-`)
-                .setColor("DarkRed");
-
-            const controlRow = new ActionRowBuilder()
-                .addComponents(
-
-                    new ButtonBuilder()
-                        .setCustomId("toggle_support")
-                        .setLabel("الدعم الفني")
-                        .setEmoji("🛠️")
-                        .setStyle(ButtonStyle.Primary),
-
-                    new ButtonBuilder()
-                        .setCustomId("toggle_appeal")
-                        .setLabel("استئناف")
-                        .setEmoji("📨")
-                        .setStyle(ButtonStyle.Secondary),
-
-                    new ButtonBuilder()
-                        .setCustomId("toggle_report")
-                        .setLabel("شكوى لاعب")
-                        .setEmoji("🚨")
-                        .setStyle(ButtonStyle.Danger),
-
-                    new ButtonBuilder()
-                        .setCustomId("toggle_suggestion")
-                        .setLabel("اقتراح")
-                        .setEmoji("💡")
-                        .setStyle(ButtonStyle.Success)
-                );
-
-            await controlChannel.send({
-                embeds: [controlEmbed],
-                components: [controlRow]
+        if (controlExists) {
+            await controlExists.edit({
+                embeds: [controlEmbed()],
+                components: controlRows()
             });
-
-            console.log("تم إرسال لوحة التحكم");
+        } else {
+            await controlChannel.send({
+                embeds: [controlEmbed()],
+                components: controlRows()
+            });
         }
     }
+}
+
+function ratingButtons(ticketId) {
+    return new ActionRowBuilder()
+        .addComponents(
+            new ButtonBuilder()
+                .setCustomId(`rate_${ticketId}_1`)
+                .setLabel("⭐")
+                .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+                .setCustomId(`rate_${ticketId}_2`)
+                .setLabel("⭐⭐")
+                .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+                .setCustomId(`rate_${ticketId}_3`)
+                .setLabel("⭐⭐⭐")
+                .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+                .setCustomId(`rate_${ticketId}_4`)
+                .setLabel("⭐⭐⭐⭐")
+                .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+                .setCustomId(`rate_${ticketId}_5`)
+                .setLabel("⭐⭐⭐⭐⭐")
+                .setStyle(ButtonStyle.Success)
+        );
+}
+
+async function closeTicket(channel, closedBy, reason, isAutoClose = false) {
+    const topic = channel.topic;
+
+    if (!topic || !topic.includes("OWNER_")) return;
+
+    const ownerId = topic.split("_")[1];
+    const type = topic.split("_")[3];
+    const claimed = topic.split("_")[5];
+
+    const user = await client.users.fetch(ownerId).catch(() => null);
+
+    const closeEmbed = new EmbedBuilder()
+        .setTitle("🔒 تم إغلاق تذكرتك")
+        .setColor("Red")
+        .setImage(ticketTypes[type].image)
+        .addFields(
+            {
+                name: "نوع التذكرة",
+                value: ticketTypes[type].name
+            },
+            {
+                name: "صاحب التذكرة",
+                value: `<@${ownerId}>`
+            },
+            {
+                name: "المستلم",
+                value: claimed === "none" ? "لم يتم الاستلام" : `<@${claimed}>`
+            },
+            {
+                name: "تم الإغلاق بواسطة",
+                value: isAutoClose ? "النظام التلقائي" : `${closedBy}`
+            },
+            {
+                name: "سبب الإغلاق",
+                value: reason
+            }
+        );
+
+    if (user) {
+        await user.send({
+            embeds: [closeEmbed]
+        }).catch(() => {});
+
+        await user.send({
+            content: "⭐ قيم التذكرة",
+            components: [ratingButtons(channel.id)]
+        }).catch(() => {});
+    }
+
+    const activity = loadActivity();
+    delete activity[channel.id];
+    saveActivity(activity);
+
+    setTimeout(() => {
+        channel.delete().catch(() => {});
+    }, 5000);
+}
+
+client.once("ready", async () => {
+    console.log(`${client.user.tag} جاهز`);
+
+    const guild = client.guilds.cache.get(GUILD_ID);
+
+    if (!guild) {
+        console.log("السيرفر غير موجود");
+        return;
+    }
+
+    await sendOrUpdatePanels(guild);
+
+    setInterval(async () => {
+        const data = loadActivity();
+
+        for (const channelId in data) {
+            const lastActivity = data[channelId];
+
+            if (Date.now() - lastActivity >= 24 * 60 * 60 * 1000) {
+                const channel = guild.channels.cache.get(channelId);
+
+                if (!channel) {
+                    delete data[channelId];
+                    saveActivity(data);
+                    continue;
+                }
+
+                await closeTicket(
+                    channel,
+                    client.user,
+                    "لم يتفاعل خلال المدة 24 ساعة ⏰",
+                    true
+                );
+            }
+        }
+    }, 60 * 1000);
+});
+
+client.on("messageCreate", async (message) => {
+    if (message.author.bot) return;
+    if (!message.channel.topic) return;
+    if (!message.channel.topic.includes("OWNER_")) return;
+
+    const activity = loadActivity();
+    activity[message.channel.id] = Date.now();
+    saveActivity(activity);
 });
 
 client.on("interactionCreate", async (interaction) => {
-
     if (interaction.isButton()) {
-
         //////////////////////////////
         // CONTROL PANEL
         //////////////////////////////
 
         if (interaction.customId.startsWith("toggle_")) {
-
             if (!hasAdminRole(interaction.member)) {
                 return interaction.reply({
                     content: "❌ ليس لديك صلاحية",
@@ -292,6 +566,8 @@ client.on("interactionCreate", async (interaction) => {
 
             control[typeKey] = !control[typeKey];
             saveControl(control);
+
+            await sendOrUpdatePanels(interaction.guild);
 
             return interaction.reply({
                 content: control[typeKey]
@@ -306,7 +582,6 @@ client.on("interactionCreate", async (interaction) => {
         //////////////////////////////
 
         if (ticketTypes[interaction.customId]) {
-
             const control = loadControl();
 
             if (control[interaction.customId]) {
@@ -330,7 +605,7 @@ client.on("interactionCreate", async (interaction) => {
                 });
             }
 
-            const ticketNumber = Math.floor(Math.random() * 9999);
+            const ticketNumber = getTicketNumber();
 
             const channel = await interaction.guild.channels.create({
                 name: `${type.emoji}・ticket-${ticketNumber}`,
@@ -340,24 +615,20 @@ client.on("interactionCreate", async (interaction) => {
                 topic: `OWNER_${interaction.user.id}_TYPE_${interaction.customId}_CLAIM_none`,
 
                 permissionOverwrites: [
-
                     {
                         id: interaction.guild.id,
                         deny: [PermissionFlagsBits.ViewChannel]
                     },
-
                     {
                         id: interaction.user.id,
                         allow: [
                             PermissionFlagsBits.ViewChannel,
                             PermissionFlagsBits.ReadMessageHistory
                         ],
-
                         deny: [
                             PermissionFlagsBits.SendMessages
                         ]
                     },
-
                     ...ADMIN_ROLE_IDS.map(role => ({
                         id: role,
                         allow: [
@@ -369,12 +640,15 @@ client.on("interactionCreate", async (interaction) => {
                 ]
             });
 
+            const activity = loadActivity();
+            activity[channel.id] = Date.now();
+            saveActivity(activity);
+
             const embed = new EmbedBuilder()
                 .setTitle(`${type.emoji} ${type.name}`)
                 .setColor("Red")
                 .setThumbnail(interaction.user.displayAvatarURL())
-                .setImage(PANEL_IMAGE)
-
+                .setImage(type.image)
                 .setDescription(`
 # مرحبا بك في نظام التذاكر
 
@@ -392,6 +666,8 @@ ${type.message}
 
 ⚠️ لا يمكنك إرسال رسائل حتى يتم استلام التذكرة من الإدارة.
 
+⚠️ إذا لم يحدث أي تفاعل داخل التذكرة لمدة 24 ساعة، سيتم إغلاقها تلقائيا.
+
 ━━━━━━━━━━━━━━━━━━
 
 ✅ سيتم الرد عليك من فريق الإدارة في أقرب وقت.
@@ -399,7 +675,6 @@ ${type.message}
 
             const buttons = new ActionRowBuilder()
                 .addComponents(
-
                     new ButtonBuilder()
                         .setCustomId("claim_ticket")
                         .setLabel("استلام التذكرة")
@@ -434,13 +709,7 @@ ${interaction.user}
         //////////////////////////////
 
         if (interaction.customId === "claim_ticket") {
-
-            const hasPermission = ADMIN_ROLE_IDS.some(role =>
-                interaction.member.roles.cache.has(role)
-            );
-
-            if (!hasPermission) {
-
+            if (!hasAdminRole(interaction.member)) {
                 return interaction.reply({
                     content: "❌ ليس لديك صلاحية",
                     ephemeral: true
@@ -459,6 +728,10 @@ ${interaction.user}
             );
 
             await interaction.channel.setTopic(newTopic);
+
+            const activity = loadActivity();
+            activity[interaction.channel.id] = Date.now();
+            saveActivity(activity);
 
             const embed = new EmbedBuilder()
                 .setTitle("✅ تم استلام التذكرة")
@@ -481,13 +754,7 @@ ${interaction.user}
         //////////////////////////////
 
         if (interaction.customId === "close_ticket") {
-
-            const hasPermission = ADMIN_ROLE_IDS.some(role =>
-                interaction.member.roles.cache.has(role)
-            );
-
-            if (!hasPermission) {
-
+            if (!hasAdminRole(interaction.member)) {
                 return interaction.reply({
                     content: "❌ ليس لديك صلاحية",
                     ephemeral: true
@@ -516,7 +783,6 @@ ${interaction.user}
         //////////////////////////////
 
         if (interaction.customId.startsWith("rate_")) {
-
             const data = interaction.customId.split("_");
 
             const ticketId = data[1];
@@ -525,7 +791,6 @@ ${interaction.user}
             const ratings = loadRatings();
 
             if (ratings[`${interaction.user.id}_${ticketId}`]) {
-
                 return interaction.reply({
                     content: "❌ قمت بالتقييم بالفعل",
                     ephemeral: true
@@ -555,103 +820,18 @@ ${interaction.user}
     //////////////////////////////
 
     if (interaction.isModalSubmit()) {
-
         if (interaction.customId === "close_modal") {
-
             const reason = interaction.fields.getTextInputValue("reason");
-
-            const topic = interaction.channel.topic;
-
-            const ownerId = topic.split("_")[1];
-            const type = topic.split("_")[3];
-            const claimed = topic.split("_")[5];
-
-            const user = await client.users.fetch(ownerId);
-
-            const closeEmbed = new EmbedBuilder()
-                .setTitle("🔒 تم إغلاق تذكرتك")
-                .setColor("Red")
-                .setImage(PANEL_IMAGE)
-                .addFields(
-
-                    {
-                        name: "نوع التذكرة",
-                        value: ticketTypes[type].name
-                    },
-
-                    {
-                        name: "صاحب التذكرة",
-                        value: `<@${ownerId}>`
-                    },
-
-                    {
-                        name: "المستلم",
-                        value: claimed === "none"
-                            ? "لم يتم الاستلام"
-                            : `<@${claimed}>`
-                    },
-
-                    {
-                        name: "تم الإغلاق بواسطة",
-                        value: `${interaction.user}`
-                    },
-
-                    {
-                        name: "سبب الإغلاق",
-                        value: reason
-                    }
-                );
-
-            const ratingButtons = new ActionRowBuilder()
-                .addComponents(
-
-                    new ButtonBuilder()
-                        .setCustomId(`rate_${interaction.channel.id}_1`)
-                        .setLabel("⭐")
-                        .setStyle(ButtonStyle.Secondary),
-
-                    new ButtonBuilder()
-                        .setCustomId(`rate_${interaction.channel.id}_2`)
-                        .setLabel("⭐⭐")
-                        .setStyle(ButtonStyle.Secondary),
-
-                    new ButtonBuilder()
-                        .setCustomId(`rate_${interaction.channel.id}_3`)
-                        .setLabel("⭐⭐⭐")
-                        .setStyle(ButtonStyle.Secondary),
-
-                    new ButtonBuilder()
-                        .setCustomId(`rate_${interaction.channel.id}_4`)
-                        .setLabel("⭐⭐⭐⭐")
-                        .setStyle(ButtonStyle.Secondary),
-
-                    new ButtonBuilder()
-                        .setCustomId(`rate_${interaction.channel.id}_5`)
-                        .setLabel("⭐⭐⭐⭐⭐")
-                        .setStyle(ButtonStyle.Success)
-                );
-
-            await user.send({
-                embeds: [closeEmbed]
-            }).catch(() => { });
-
-            await user.send({
-                content: "⭐ قيم التذكرة",
-                components: [ratingButtons]
-            }).catch(() => { });
 
             await interaction.reply({
                 content: "✅ سيتم حذف التذكرة خلال 5 ثواني",
                 ephemeral: true
             });
 
-            setTimeout(() => {
-                interaction.channel.delete().catch(() => { });
-            }, 5000);
+            await closeTicket(interaction.channel, interaction.user, reason, false);
         }
 
         if (interaction.customId.startsWith("ratingmodal_")) {
-
             const data = interaction.customId.split("_");
 
             const ticketId = data[1];
@@ -671,17 +851,14 @@ ${interaction.user}
                 .setTitle("⭐ تقييم جديد")
                 .setColor("Gold")
                 .addFields(
-
                     {
                         name: "الشخص",
                         value: `${interaction.user}`
                     },
-
                     {
                         name: "عدد النجوم",
                         value: `${stars} ⭐`
                     },
-
                     {
                         name: "سبب التقييم",
                         value: reason
