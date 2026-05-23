@@ -517,7 +517,12 @@ async function closeTicket(channel, closedBy, reason, isAutoClose = false) {
                     value: claimed === "none"
                         ? "لم يتم الاستلام"
                         : `<@${claimed}>`
-                }
+                },
+
+                { 
+                    name: "سبب الاغلاق",
+                    value: reason
+                }            
             );
 
         await user.send({
