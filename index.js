@@ -393,6 +393,104 @@ function mainPanelRow() {
 }
 
 //////////////////////////////////////////////////
+// SEND PANELS
+//////////////////////////////////////////////////
+
+async function sendPanels() {
+
+    const panelChannel = await client.channels.fetch(PANEL_CHANNEL_ID)
+        .catch(() => null);
+
+    if (!panelChannel) {
+        console.log("Main Panel Channel Not Found");
+        return;
+    }
+
+    const interviewChannel = await client.channels.fetch(INTERVIEW_PANEL_CHANNEL_ID)
+        .catch(() => null);
+
+    const oldMessages = await panelChannel.messages.fetch({
+        limit: 20
+    });
+
+    const oldPanel = oldMessages.find(msg =>
+        msg.author.id === client.user.id &&
+        msg.embeds.length > 0 &&
+        msg.embeds[0]?.title === "🎫 نظام التذاكر"
+    );
+
+    if (oldPanel) {
+        await oldPanel.delete().catch(() => {});
+    }
+
+    await panelChannel.send({
+        embeds: [mainPanelEmbed()],
+        components: [mainPanelRow()]
+    });
+
+    console.log("Main Panel Sent");
+
+    if (interviewChannel) {
+
+        const oldInterviewMessages = await interviewChannel.messages.fetch({
+            limit: 20
+        });
+
+        const oldInterviewPanel = oldInterviewMessages.find(msg =>
+            msg.author.id === client.user.id &&
+            msg.embeds.length > 0 &&
+            msg.embeds[0]?.title === "🎤 المقابلة الفورية"
+        );
+
+        if (oldInterviewPanel) {
+            await oldInterviewPanel.delete().catch(() => {});
+        }
+
+        const interviewEmbed = new EmbedBuilder()
+
+            .setTitle("🎤 المقابلة الفورية")
+
+            .setDescription(`
+
+مرحبا بك في نظام المقابلة الفورية.
+
+━━━━━━━━━━━━━━━━━━
+
+🎤 افتح تذكرتك وابدأ المقابلة مباشرة مع الإدارة.
+
+━━━━━━━━━━━━━━━━━━
+
+⚠️ يرجى التأكد من جاهزيتك قبل فتح التذكرة.
+
+⚠️ يتم إغلاق التذكرة تلقائيا بعد 24 ساعة إذا لم يحدث أي تفاعل.
+
+`)
+
+            .setColor("Red")
+
+            .setImage(INTERVIEW_PANEL_IMAGE);
+
+        const interviewRow = new ActionRowBuilder()
+
+            .addComponents(
+
+                new ButtonBuilder()
+                    .setCustomId("interview")
+                    .setLabel("فتح مقابلة فورية")
+                    .setEmoji("🎤")
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+        await interviewChannel.send({
+            embeds: [interviewEmbed],
+            components: [interviewRow]
+        });
+
+        console.log("Interview Panel Sent");
+    }
+}
+
+//////////////////////////////////////////////////
 // CLOSE FUNCTION
 //////////////////////////////////////////////////
 
@@ -406,17 +504,9 @@ async function closeTicket(channel, closedBy, reason, isAutoClose = false) {
     const type = topic.split("_")[3];
     const claimed = topic.split("_")[5];
 
-    //////////////////////////////
-    // REMOVE SEND PERMISSION
-    //////////////////////////////
-
     await channel.permissionOverwrites.edit(ownerId, {
         SendMessages: false
     });
-
-    //////////////////////////////
-    // CLOSED EMBED
-    //////////////////////////////
 
     const closeEmbed = new EmbedBuilder()
 
@@ -458,10 +548,6 @@ async function closeTicket(channel, closedBy, reason, isAutoClose = false) {
             }
         );
 
-    //////////////////////////////
-    // BUTTONS
-    //////////////////////////////
-
     const row = new ActionRowBuilder()
 
         .addComponents(
@@ -483,10 +569,6 @@ async function closeTicket(channel, closedBy, reason, isAutoClose = false) {
         embeds: [closeEmbed],
         components: [row]
     });
-
-    //////////////////////////////
-    // DM USER
-    //////////////////////////////
 
     const user = await client.users.fetch(ownerId).catch(() => null);
 
@@ -519,10 +601,10 @@ async function closeTicket(channel, closedBy, reason, isAutoClose = false) {
                         : `<@${claimed}>`
                 },
 
-                { 
+                {
                     name: "سبب الاغلاق",
                     value: reason
-                }            
+                }
             );
 
         await user.send({
@@ -574,6 +656,8 @@ client.once("ready", async () => {
 
     console.log(`${client.user.tag} جاهز`);
 
+    await sendPanels();
+
 });
 
 //////////////////////////////////////////////////
@@ -582,15 +666,7 @@ client.once("ready", async () => {
 
 client.on("interactionCreate", async (interaction) => {
 
-    //////////////////////////////////////////////////
-    // BUTTONS
-    //////////////////////////////////////////////////
-
     if (interaction.isButton()) {
-
-        ////////////////////////////////////////////////
-        // OPEN TICKET
-        ////////////////////////////////////////////////
 
         if (ticketTypes[interaction.customId]) {
 
@@ -650,10 +726,6 @@ client.on("interactionCreate", async (interaction) => {
                 ]
             });
 
-            ////////////////////////////////////////////////
-            // EMBED
-            ////////////////////////////////////////////////
-
             const embed = new EmbedBuilder()
 
                 .setTitle(`${type.emoji} ${type.name}`)
@@ -684,10 +756,6 @@ ${type.message}
 ━━━━━━━━━━━━━━━━━━
 
 `);
-
-            ////////////////////////////////////////////////
-            // BUTTONS
-            ////////////////////////////////////////////////
 
             const row = new ActionRowBuilder()
 
@@ -724,10 +792,6 @@ ${interaction.user}
                 ephemeral: true
             });
         }
-
-        ////////////////////////////////////////////////
-        // CLAIM
-        ////////////////////////////////////////////////
 
         if (interaction.customId === "claim_ticket") {
 
@@ -769,10 +833,6 @@ ${interaction.user}
             });
         }
 
-        ////////////////////////////////////////////////
-        // CLOSE
-        ////////////////////////////////////////////////
-
         if (interaction.customId === "close_ticket") {
 
             if (!hasAdminRole(interaction.member)) {
@@ -805,10 +865,6 @@ ${interaction.user}
 
             return interaction.showModal(modal);
         }
-
-        ////////////////////////////////////////////////
-        // REOPEN
-        ////////////////////////////////////////////////
 
         if (interaction.customId === "reopen_ticket") {
 
@@ -843,10 +899,6 @@ ${interaction.user}
             });
         }
 
-        ////////////////////////////////////////////////
-        // DELETE
-        ////////////////////////////////////////////////
-
         if (interaction.customId === "delete_ticket") {
 
             if (!canDelete(interaction.member)) {
@@ -867,10 +919,6 @@ ${interaction.user}
 
             }, 5000);
         }
-
-        ////////////////////////////////////////////////
-        // RATING
-        ////////////////////////////////////////////////
 
         if (interaction.customId.startsWith("rate_")) {
 
@@ -914,15 +962,7 @@ ${interaction.user}
         }
     }
 
-    //////////////////////////////////////////////////
-    // MODALS
-    //////////////////////////////////////////////////
-
     if (interaction.isModalSubmit()) {
-
-        ////////////////////////////////////////////////
-        // CLOSE MODAL
-        ////////////////////////////////////////////////
 
         if (interaction.customId === "close_modal") {
 
@@ -940,10 +980,6 @@ ${interaction.user}
                 false
             );
         }
-
-        ////////////////////////////////////////////////
-        // RATING MODAL
-        ////////////////////////////////////////////////
 
         if (interaction.customId.startsWith("ratingmodal_")) {
 
