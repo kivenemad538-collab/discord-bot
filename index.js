@@ -259,7 +259,7 @@ const ticketTypes = {
         category: SUPPORT_CATEGORY_ID,
         image: TICKET_IMAGES.support,
         closeImage: TICKET_CLOSE_IMAGES.support,
-        message: "يرجى شرح المشكلة بالكامل."
+        message: "يرجى شرح المشكلة بالكامل مع إرسال الصور أو المقاطع إن وجدت حتى يتمكن فريق الدعم من مساعدتك بأسرع وقت ممكن."
     },
 
     appeal: {
@@ -268,7 +268,7 @@ const ticketTypes = {
         category: APPEAL_CATEGORY_ID,
         image: TICKET_IMAGES.appeal,
         closeImage: TICKET_CLOSE_IMAGES.appeal,
-        message: "يرجى كتابة سبب الاستئناف بالكامل."
+        message: "يرجى كتابة سبب الاستئناف بالكامل مع توضيح جميع التفاصيل الخاصة بالحالة الخاصة بك."
     },
 
     report: {
@@ -277,7 +277,7 @@ const ticketTypes = {
         category: REPORT_CATEGORY_ID,
         image: TICKET_IMAGES.report,
         closeImage: TICKET_CLOSE_IMAGES.report,
-        message: "يرجى إرسال الأدلة بالكامل."
+        message: "يرجى كتابة اسم اللاعب وشرح الشكوى بالكامل مع إرسال الأدلة المتوفرة."
     },
 
     suggestion: {
@@ -286,7 +286,7 @@ const ticketTypes = {
         category: SUGGESTION_CATEGORY_ID,
         image: TICKET_IMAGES.suggestion,
         closeImage: TICKET_CLOSE_IMAGES.suggestion,
-        message: "يرجى كتابة اقتراحك بالكامل."
+        message: "يرجى كتابة اقتراحك بالكامل مع توضيح الفكرة وطريقة تنفيذها داخل السيرفر."
     },
 
     interview: {
@@ -295,7 +295,7 @@ const ticketTypes = {
         category: INTERVIEW_CATEGORY_ID,
         image: TICKET_IMAGES.interview,
         closeImage: TICKET_CLOSE_IMAGES.interview,
-        message: "يرجى انتظار الإدارة."
+        message: "يرجى انتظار الإدارة، وسيتم استلام التذكرة لبدء المقابلة الفورية معك."
     },
 
     bugreport: {
